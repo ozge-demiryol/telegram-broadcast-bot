@@ -1,0 +1,27 @@
+{
+  "name": "telegram-broadcast-bot",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^25.0.3",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "mysql2": "^3.16.0",
+    "p-limit": "^5.0.0",
+    "telegraf": "^4.16.3",
+    "winston": "^3.19.0"
+  }
+}
