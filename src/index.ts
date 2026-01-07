@@ -3,6 +3,7 @@ import { Logger } from "./infrastructure/logger";
 import { loadBotFeatures } from "./commands/loaders/bot.loader";
 import { CONFIG } from "./config/config";
 import { Database } from "./infrastructure/database";
+import { redisClient } from "./infrastructure/redisClient";
 
 const bot = new Telegraf(CONFIG.TELEGRAM.TOKEN);
 
@@ -10,6 +11,7 @@ async function main() {
   try {
     Logger.info("Initializing application...");
     const db = Database.getInstance();
+    redisClient.getClient();
     loadBotFeatures(bot, db);
 
     if (CONFIG.TELEGRAM.PUBLIC_URL) {

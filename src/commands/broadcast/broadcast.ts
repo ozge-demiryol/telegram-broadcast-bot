@@ -22,15 +22,18 @@ export const broadcastCommand = (
       return ctx.reply("Only admins can broadcast");
     }
 
-    const subscribers = [1350947148, 1350947148, 1350947148, 1350947148];
+    //TODO: Replace with actual subscriber IDs from DB
+    const subscribers = [1350947148, 784765731];
 
     await ctx.reply(`Broadcast started to ${subscribers.length} users.`);
 
-    broadcastService.broadcast(bot, subscribers, message).catch((error) => {
-      Logger.error("Broadcast error:", error);
-      ctx
-        .reply("An error occurred during broadcast.")
-        .catch((err) => Logger.error("Reply error:", err));
-    });
+    broadcastService
+      .handleBroadcast(bot, subscribers, message, subscriberRepository)
+      .catch((error) => {
+        Logger.error("Broadcast error:", error);
+        ctx
+          .reply("An error occurred during broadcast.")
+          .catch((err) => Logger.error("Reply error:", err));
+      });
   });
 };

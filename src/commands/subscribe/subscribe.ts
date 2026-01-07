@@ -1,7 +1,7 @@
-import { Database } from "../../infrastructure/database";
 import { Telegraf } from "telegraf";
 import { Logger } from "../../infrastructure/logger";
 import { ISubscriberRepository } from "@/repositories/ISubscriberRepository";
+import { redisRepository } from "../../repositories/redis/redisRepository";
 
 export const subscribeCommand = (
   bot: Telegraf,
@@ -18,6 +18,13 @@ export const subscribeCommand = (
         ctx.from.username || "",
         false
       );
+
+      //TODO: Remove this code, added testing purposes only
+      await redisRepository.set(
+        `subscribed_user_${ctx.from.id}`,
+        "true",
+        86400
+      ); // Cache for 1 day
 
       Logger.info("Subscribed. User ID:", { userId: ctx.from.id });
       await ctx.reply("Subscribed! 🎉");
