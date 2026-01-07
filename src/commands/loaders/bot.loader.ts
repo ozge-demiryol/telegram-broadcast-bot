@@ -6,6 +6,7 @@ import { startCommand } from "../start/start";
 import { Logger } from "../../infrastructure/logger";
 import { SubscriberRepository } from "../../repositories/SubscriberRepository";
 import { unsubscribeCommand } from "../unsubscribe/unsubscribe";
+import { broadcastQueue } from "../broadcast/broadcast.queue";
 import { Pool } from "mysql2/promise";
 
 export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
@@ -13,6 +14,9 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
     Logger.info("Initializing bot features and dependencies...");
 
     const subscriberRepository = new SubscriberRepository(db);
+
+    // Initialize broadcast worker with dependencies
+    broadcastQueue.setupWorker(bot, subscriberRepository);
 
     //Feature setup
     startCommand(bot);

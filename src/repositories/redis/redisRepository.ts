@@ -1,5 +1,5 @@
-import { redisClient } from "./redisClient";
-import { Logger } from "./logger";
+import { redisClient } from "../../infrastructure/redisClient";
+import { Logger } from "../../infrastructure/logger";
 
 class RedisRepository {
   public async set(
@@ -63,6 +63,61 @@ class RedisRepository {
       return members;
     } catch (error) {
       Logger.error(`[Redis] Failed to get set members for "${key}":`, error);
+      throw error;
+    }
+  }
+
+  public async hset(
+    key: string,
+    data: Record<string, string | number>
+  ): Promise<void> {
+    try {
+      const client = redisClient.getClient();
+      await client.hset(key, data);
+      Logger.info(`[Redis] Hash: Set fields in "${key}"`);
+    } catch (error) {
+      Logger.error(`[Redis] Failed to hset "${key}":`, error);
+      throw error;
+    }
+  }
+
+  public async hincrby(
+    key: string,
+    field: string,
+    increment: number
+  ): Promise<number> {
+    try {
+      const client = redisClient.getClient();
+      const result = await client.hincrby(key, field, increment);
+      Logger.debug(
+        `[Redis] Hash: Incremented "${field}" in "${key}" by ${increment}`
+      );
+      return result;
+    } catch (error) {
+      Logger.error(`[Redis] Failed to hincrby "${key}":`, error);
+      throw error;
+    }
+  }
+
+  public async hgetall(key: string): Promise<Record<string, string>> {
+    try {
+      const client = redisClient.getClient();
+      const data = await client.hgetall(key);
+      Logger.debug(`[Redis] Hash: Retrieved all fields from "${key}"`);
+      return data;
+    } catch (error) {
+      Logger.error(`[Redis] Failed to hgetall "${key}":`, error);
+      throw error;
+    }
+  }
+
+  public async expire(key: string, seconds: number): Promise<void> {
+    try {
+      const client = redisClient.getClient();
+      await client.expire(key, seconds);
+      Logger.debug(`[Redis] Set expiry for "${key}" to ${seconds}s`);
+    } catch (error) {
+      Logger.error(`[Redis] Failed to set expire "${key}":`, error);
       throw error;
     }
   }

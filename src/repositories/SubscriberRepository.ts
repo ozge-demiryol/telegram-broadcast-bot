@@ -58,6 +58,19 @@ export class SubscriberRepository implements ISubscriberRepository {
       throw error;
     }
   }
+
+  async findAllActive(): Promise<Subscriber[]> {
+    try {
+      const [rows] = await this.db.query(
+        "SELECT * FROM subscribers WHERE isActive = true"
+      );
+      return rows as Subscriber[];
+    } catch (error) {
+      Logger.error("Error in findAllActive()", error);
+      throw error;
+    }
+  }
+
   async setActiveStatus(telegramId: number, isActive: boolean): Promise<void> {
     try {
       await this.db.query(

@@ -29,4 +29,6 @@ export const Logger = {
     logger.error(message.replace(/[\r\n]/g, "_"), { error }),
   warn: (message: string, meta?: any) =>
     logger.warn(message.replace(/[\r\n]/g, "_"), meta),
+  debug: (message: string, meta?: any) =>
+    logger.debug(message.replace(/[\r\n]/g, "_"), meta),
 };

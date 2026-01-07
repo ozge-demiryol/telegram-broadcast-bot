@@ -19,13 +19,6 @@ export const subscribeCommand = (
         false
       );
 
-      //TODO: Remove this code, added testing purposes only
-      await redisRepository.set(
-        `subscribed_user_${ctx.from.id}`,
-        "true",
-        86400
-      ); // Cache for 1 day
-
       Logger.info("Subscribed. User ID:", { userId: ctx.from.id });
       await ctx.reply("Subscribed! 🎉");
     } catch (error) {

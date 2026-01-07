@@ -10,6 +10,7 @@ const bot = new Telegraf(CONFIG.TELEGRAM.TOKEN);
 async function main() {
   try {
     Logger.info("Initializing application...");
+
     const db = Database.getInstance();
     redisClient.getClient();
     loadBotFeatures(bot, db);
