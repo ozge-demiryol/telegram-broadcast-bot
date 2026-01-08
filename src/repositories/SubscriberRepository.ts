@@ -95,6 +95,34 @@ export class SubscriberRepository implements ISubscriberRepository {
     }
   }
 
+  async isAdmin(telegramId: number): Promise<boolean> {
+    try {
+      const user = await this.findByTelegramId(telegramId);
+      return user?.isAdmin ?? false;
+    } catch (error) {
+      Logger.error(`Error in isAdmin() for id ${telegramId}`, error);
+      throw error;
+    }
+  }
+
+  async findByUsername(username: string): Promise<Subscriber | null> {
+    try {
+      const [rows] = await this.db.query(
+        "SELECT * FROM subscribers WHERE username = ? LIMIT 1",
+        [username]
+      );
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return null;
+      }
+
+      return (rows as Subscriber[])[0];
+    } catch (error) {
+      Logger.error(`Error in findByUsername() for username ${username}`, error);
+      throw error;
+    }
+  }
+
   async unsubscribe(telegramId: number): Promise<void> {
     try {
       await this.db.query(

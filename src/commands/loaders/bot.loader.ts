@@ -8,6 +8,9 @@ import { SubscriberRepository } from "../../repositories/SubscriberRepository";
 import { unsubscribeCommand } from "../unsubscribe/unsubscribe";
 import { broadcastQueue } from "../broadcast/broadcast.queue";
 import { Pool } from "mysql2/promise";
+import { dashboardCommand } from "../dashboard/dashboard";
+import { grantCommand } from "../dashboard/grant";
+import { revokeCommand } from "../dashboard/revoke";
 
 export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
   try {
@@ -23,11 +26,13 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
     subscribeCommand(bot, subscriberRepository);
     unsubscribeCommand(bot, subscriberRepository);
     helpCommand(bot);
+    dashboardCommand(bot, subscriberRepository);
+    grantCommand(bot, subscriberRepository);
+    revokeCommand(bot, subscriberRepository);
     broadcastCommand(bot, subscriberRepository);
 
     Logger.info("Bot features (commands) loaded successfully.");
   } catch (error) {
-    // We catch the error to log exactly where the initialization failed
     Logger.error(
       "CRITICAL: Failed to load bot features during bootstrap",
       error

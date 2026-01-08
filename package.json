@@ -1,6 +1,5 @@
 {
   "name": "telegram-broadcast-bot",
-  "private": true,
   "version": "1.0.0",
   "description": "",
   "license": "ISC",
