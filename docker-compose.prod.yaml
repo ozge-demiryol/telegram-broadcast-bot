@@ -1,0 +1,86 @@
+services:
+  # 1. Your Node.js/TypeScript Bot
+  bot:
+    container_name: telegram_bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - PUBLIC_URL=${PUBLIC_URL} # TODO: Update webhook server name from .env
+      - LOG_LEVEL=${LOG_LEVEL}
+    depends_on:
+      - db
+      - redis
+    networks:
+      - bot_net
+
+  # 2. MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: bot_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD} # TODO: Check this
+      MYSQL_DATABASE: ${DB_NAME}
+      # MYSQL_USER: ${DB_USER} # Don't use if you connect with root
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql # Persist data here
+    networks:
+      - bot_net
+
+  # 3. Redis Cache
+  redis:
+    image: redis:alpine
+    container_name: redis_queue
+    restart: always
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - bot_net
+
+  # 4. Nginx Reverse Proxy
+  webserver:
+    image: nginx:alpine
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    depends_on:
+      - bot
+    networks:
+      - bot_net
+
+  # Certbot (SSL Auto-renewal)
+  certbot:
+    image: certbot/certbot
+    container_name: bot_certbot
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+# Define networks
+networks:
+  bot_net:
+    driver: bridge
+
+# Define volumes for persistence
+volumes:
+  db_data:
+  redis_data:

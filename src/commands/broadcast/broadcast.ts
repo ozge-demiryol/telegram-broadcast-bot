@@ -26,9 +26,8 @@ export const broadcastCommand = (
       return;
     }
 
-    //const subscribers = await subscriberRepository.findAllActive();
-    //TODO: Replace with actual subscriber IDs from DB
-    const subscribers = [1350947148];
+    const subscribers = await subscriberRepository.findAllActive();
+    //TODO: Remove it before deploying
     //const subscribers = [1350947148, 784765731];
     const broadcastId = `bc-${Date.now()}`;
 
@@ -42,7 +41,7 @@ export const broadcastCommand = (
     });
 
     await broadcastQueue.addBulkMessages(
-      subscribers,
+      subscribers.map((s) => s.telegramId),
       ctx.chat.id,
       ctx.message.message_id,
       broadcastId,
@@ -77,7 +76,6 @@ export const broadcastCommand = (
 //       return ctx.reply("Only admins can broadcast");
 //     }
 
-//     //TODO: Replace with actual subscriber IDs from DB
 //     const subscribers = [1350947148, 784765731];
 
 //     await ctx.reply(`Broadcast started to ${subscribers.length} users.`);

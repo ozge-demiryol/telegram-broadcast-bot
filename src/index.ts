@@ -15,7 +15,7 @@ async function main() {
     redisClient.getClient();
     loadBotFeatures(bot, db);
 
-    if (CONFIG.TELEGRAM.PUBLIC_URL) {
+    if (process.env.NODE_ENV === 'production') {
       await startWebhookMode();
     } else {
       await startPollingMode();

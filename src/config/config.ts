@@ -3,8 +3,14 @@ dotenv.config();
 
 export const CONFIG = {
   DB: {
+    HOST: process.env.DB_HOST || "127.0.0.1",
+    PORT: parseInt(process.env.DB_PORT || "3306"),
+    USER: process.env.DB_USER || "root",
+    PASSWORD: process.env.DB_PASSWORD || "rootpassword",
+    DATABASE: process.env.DB_NAME || "telegram_bot",
     CONNECTION_STRING:
-      process.env.DB_CONNECTION_STRING || "mysql://root:@localhost:3306/bot_db",
+      process.env.DB_CONNECTION_STRING ||
+      "mysql://root:rootpassword@localhost:3306/telegram_bot",
   },
   REDIS: {
     PORT: parseInt(process.env.REDIS_PORT || "6379") || 6379,

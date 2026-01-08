@@ -11,7 +11,11 @@ export class Database {
     if (!Database.instance) {
       try {
         Database.instance = mysql.createPool({
-          uri: CONFIG.DB.CONNECTION_STRING,
+          host: CONFIG.DB.HOST,
+          port: CONFIG.DB.PORT,
+          user: CONFIG.DB.USER,
+          password: CONFIG.DB.PASSWORD,
+          database: CONFIG.DB.DATABASE,
           connectionLimit: 10,
           enableKeepAlive: true,
         });
