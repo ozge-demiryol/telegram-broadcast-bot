@@ -19,7 +19,7 @@ This bot is built for broadcasting to subscribers without hitting the Telegram's
 
 ## Message Queue System
 
-To prevent the bot from being banned due to exceeding Telegram's rate limits, a message queue system is implemented using Redis by throttling the broadcasting. This system ensures that messages are sent out at a controlled rate, adhering to Telegram's guidelines. Telegram's limit is 30 messages per second. But to stay at the safe zone, we set it 25 for now. It can be changed anytime from `src/config/config.ts`. You can find the variable holds this value as `RATE_LIMIT`
+To prevent the bot from being banned due to exceeding Telegram's rate limits, a message queue system is implemented using Redis by throttling the broadcasting. This system ensures that messages are sent out at a controlled rate, adhering to Telegram's guidelines. Telegram's limit is 30 messages per second and 5 concurrent API request. But to stay at the safe zone, we set it 25 for now. It can be changed anytime from `.env`. You can find the variable holds this value as `RATE_LIMIT` and `CONCURRENT_REQUESTS`
 
 ## 🛠 Developer Installation (Local Setup)
 
