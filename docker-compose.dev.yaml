@@ -13,17 +13,17 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
 
-  redis:
-    image: redis:alpine
-    container_name: redis_queue
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+  # redis:
+  #   image: redis:alpine
+  #   container_name: redis_queue
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
 
 volumes:
   mysql_data:
-  redis_data:
+#  redis_data:
 # version: "3.8"
 
 # services:
