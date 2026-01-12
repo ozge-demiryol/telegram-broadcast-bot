@@ -4,6 +4,7 @@ import { IMessenger } from "../../infrastructure/telegram/IMessenger";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
 import { Logger } from "../../infrastructure/logger";
 import { CONFIG } from "../../config/config";
+import { IBroadcastRepository } from "@/repositories/broadcast/IBroadcastRepository";
 
 export class BroadcastWorker {
   private limiter: Bottleneck;
@@ -12,6 +13,7 @@ export class BroadcastWorker {
   constructor(
     private messenger: IMessenger,
     private subscriberRepo: ISubscriberRepository,
+    private broadcastRepo: IBroadcastRepository,
     private db: any // MySQL Pool
   ) {
     const rateLimit = CONFIG.TELEGRAM.RATE_LIMIT;
@@ -32,22 +34,16 @@ export class BroadcastWorker {
 
   async enqueue(adminId: number, messageId: number, chatId: number) {
     // Check if there's an ongoing broadcast
-    const [ongoing] = await this.db.query(
-      "SELECT * FROM broadcasts WHERE status IN ('pending', 'processing') ORDER BY created_at ASC"
-    );
-
-    await this.db.query(
-      "INSERT INTO broadcasts (admin_id, message_id, chat_id, status) VALUES (?, ?, ?, 'pending')",
-      [adminId, messageId, chatId]
-    );
+    const ongoingBroadcasts = await this.broadcastRepo.getOngoingBroadcasts();
+    await this.broadcastRepo.createBroadcast(adminId, messageId, chatId);
 
     // Notify admin if there's already a broadcast in progress
-    if (ongoing && ongoing.length > 0) {
-      const [subscribers] = await this.db.query(
-        "SELECT COUNT(*) as count FROM subscribers WHERE isActive = 1"
+    if (ongoingBroadcasts && ongoingBroadcasts.length > 0) {
+      const subscribers = await this.subscriberRepo.findAllActive();
+      const totalSubscribers = subscribers.length;
+      const estimatedSeconds = Math.ceil(
+        totalSubscribers / CONFIG.TELEGRAM.RATE_LIMIT
       );
-      const totalSubscribers = subscribers[0].count;
-      const estimatedSeconds = Math.ceil(totalSubscribers / CONFIG.TELEGRAM.RATE_LIMIT);
       const estimatedMinutes = Math.floor(estimatedSeconds / 60);
 
       await this.messenger.sendMessage(
@@ -66,27 +62,19 @@ export class BroadcastWorker {
     }
 
     try {
-      const [rows] = await this.db.query(
-        "SELECT * FROM broadcasts WHERE status = 'pending' ORDER BY created_at ASC LIMIT 1"
-      );
-
-      if (!rows || rows.length === 0) {
+      const job = await this.broadcastRepo.getNextPendingBroadcast();
+      if (!job) {
         return;
       }
 
-      const job = rows[0];
       Logger.info(`[BroadcastWorker] Starting broadcast job: ${job.id}`);
       this.isProcessing = true;
 
-      await this.db.query(
-        "UPDATE broadcasts SET status = 'processing' WHERE id = ?",
-        [job.id]
-      );
+      await this.broadcastRepo.updateStatus(job.id, "processing");
+
       await this.runBroadcast(job);
-      await this.db.query(
-        "UPDATE broadcasts SET status = 'completed' WHERE id = ?",
-        [job.id]
-      );
+
+      await this.broadcastRepo.updateStatus(job.id, "completed");
       Logger.info(`[BroadcastWorker] Broadcast job completed: ${job.id}`);
     } catch (err) {
       Logger.error("[CRITICAL] Broadcast job failed", err);
@@ -103,9 +91,7 @@ export class BroadcastWorker {
     const promises: Promise<void>[] = [];
 
     // Fetch active subscribers
-    const [subscribers] = await this.db.query(
-      "SELECT telegramId FROM subscribers WHERE isActive = 1"
-    );
+    const subscribers = await this.subscriberRepo.findAllActive();
     Logger.info(`[BroadcastWorker] Found subscribers: ${subscribers.length}`);
 
     for (const row of subscribers) {
