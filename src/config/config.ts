@@ -26,6 +26,16 @@ export const CONFIG = {
     CONCURRENT_REQUESTS: parseInt(process.env.CONCURRENT_REQUESTS || "3") || 3, // Max. number of concurrent requests to Telegram API is 5, but we chose 3 for safe
     RATE_LIMIT: parseInt(process.env.RATE_LIMIT || "25") || 25, //Max. limit of messages per second is 30 but we chose 25 to be stay at safe zone
   },
+  BROADCAST: {
+    PROGRESS_REPORT_PERCENTAGE:
+      parseInt(process.env.PROGRESS_REPORT_PERCENTAGE || "5") || 5,
+    MAX_RETRY_ATTEMPTS: parseInt(process.env.MAX_RETRY_ATTEMPTS || "3") || 3,
+    RETRY_BACKOFF_MS: parseInt(process.env.RETRY_BACKOFF_MS || "5000") || 5000,
+    QUEUE_LOCK_TTL_SECONDS:
+      parseInt(process.env.QUEUE_LOCK_TTL_SECONDS || "3600") || 3600, // 1 hour
+    BROADCAST_METADATA_TTL_SECONDS:
+      parseInt(process.env.BROADCAST_METADATA_TTL_SECONDS || "86400") || 86400, // 24 hours
+  },
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
 };
 

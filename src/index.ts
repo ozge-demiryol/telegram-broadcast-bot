@@ -12,10 +12,10 @@ async function main() {
     Logger.info("Initializing application...");
 
     const db = Database.getInstance();
-    redisClient.getClient();
+    //redisClient.getClient();
     loadBotFeatures(bot, db);
 
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === "production") {
       await startWebhookMode();
     } else {
       await startPollingMode();

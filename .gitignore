@@ -2,7 +2,6 @@ node_modules
 .env
 logs/
 dist/
-.amazonq/
 .qodo/
 .vscode/
 .DS_Store

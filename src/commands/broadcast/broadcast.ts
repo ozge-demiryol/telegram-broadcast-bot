@@ -1,11 +1,11 @@
 import { Telegraf } from "telegraf";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
-import { redisRepository } from "../../repositories/redis/redisRepository";
-import { broadcastQueue } from "./broadcast.queue";
+import { BroadcastWorker } from "./BroadcastWorker";
 
 export const broadcastCommand = (
   bot: Telegraf,
-  subscriberRepository: ISubscriberRepository
+  subscriberRepository: ISubscriberRepository,
+  broadcastWorker: BroadcastWorker
 ) => {
   bot.command("broadcast", async (ctx) => {
     const user = await subscriberRepository.findByTelegramId(ctx.from!.id);
@@ -26,13 +26,13 @@ export const broadcastCommand = (
       return;
     }
 
-    const subscribers = await subscriberRepository.findAllActive();
+    //const subscribers = await subscriberRepository.findAllActive();
     //TODO: Remove it before deploying
     //const subscribers = [1350947148, 784765731];
-    const broadcastId = `bc-${Date.now()}`;
+    //const broadcastId = `bc-${Date.now()}`;
 
     // Initialize tracking in Redis
-    await redisRepository.hset(`broadcast:${broadcastId}`, {
+    /*await redisRepository.hset(`broadcast:${broadcastId}`, {
       total: subscribers.length,
       sent: 0,
       failed: 0,
@@ -46,47 +46,10 @@ export const broadcastCommand = (
       ctx.message.message_id,
       broadcastId,
       ctx.from.id
-    );
+    );*/
 
-    await ctx.reply(`Broadcasting to ${subscribers.length} users...`);
+    //await ctx.reply(`Broadcasting to ${subscribers.length} users...`);
+    await broadcastWorker.enqueue(ctx.from.id, ctx.message.message_id, ctx.chat.id);
+    await ctx.reply("Broadcast queued. Processing started...");
   });
 };
-
-// import { Telegraf } from "telegraf";
-// import { broadcastService } from "./broadcast.service";
-// import { Logger } from "../../infrastructure/logger";
-// import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
-
-// export const broadcastCommand = (
-//   bot: Telegraf,
-//   subscriberRepository: ISubscriberRepository
-// ) => {
-//   bot.command("broadcast", async (ctx) => {
-//     const message = ctx.payload?.trim();
-
-//     if (!message) {
-//       return ctx.reply(
-//         "Please provide a message to broadcast. Example: /broadcast Hello!"
-//       );
-//     }
-
-//     const user = await subscriberRepository.findByTelegramId(ctx.from!.id);
-
-//     if (!user?.isAdmin) {
-//       return ctx.reply("Only admins can broadcast");
-//     }
-
-//     const subscribers = [1350947148, 784765731];
-
-//     await ctx.reply(`Broadcast started to ${subscribers.length} users.`);
-
-//     broadcastService
-//       .handleBroadcast(bot, subscribers, message, subscriberRepository)
-//       .catch((error) => {
-//         Logger.error("Broadcast error:", error);
-//         ctx
-//           .reply("An error occurred during broadcast.")
-//           .catch((err) => Logger.error("Reply error:", err));
-//       });
-//   });
-// };

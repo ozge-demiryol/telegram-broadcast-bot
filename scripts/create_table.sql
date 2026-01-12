@@ -9,3 +9,12 @@ CREATE TABLE IF NOT EXISTS subscribers (
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Registration date
     modifiedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP -- Last update date
 );
+
+CREATE TABLE broadcasts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    admin_id BIGINT,
+    message_id BIGINT,
+    chat_id BIGINT,
+    status ENUM('pending', 'processing', 'completed') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
