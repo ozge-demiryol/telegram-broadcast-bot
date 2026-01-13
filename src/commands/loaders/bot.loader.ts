@@ -24,8 +24,7 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
     const broadcastWorker = new BroadcastWorker(
       messenger,
       subscriberRepository,
-      broadcastRepository,
-      db
+      broadcastRepository
     );
 
     //Feature setup
