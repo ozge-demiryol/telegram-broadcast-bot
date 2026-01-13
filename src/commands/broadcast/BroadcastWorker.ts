@@ -25,7 +25,7 @@ export class BroadcastWorker {
     });
 
     // Handle rate limits and retries globally
-    this.limiter.on("failed", async (error, jobInfo) => {
+    this.limiter.on("failed", async (error) => {
       if (error.response?.error_code === StatusCodes.TOO_MANY_REQUESTS) {
         const retryAfter = error.response.parameters?.retry_after || 5;
         // Add a 1-second buffer to be safe
@@ -105,7 +105,7 @@ export class BroadcastWorker {
     // Fetch active subscribers
     const subscribers = await this.subscriberRepo.findAllActive();
     //TODO: FOR STRESS TESTING ONLY. Remove it before deploying
-    const stressTestData = Array.from({ length: 255 }, () => subscribers[0]);
+    const stressTestData = Array.from({ length: 25 }, () => subscribers[0]);
     Logger.info(
       `[BroadcastWorker] Found subscribers: ${stressTestData.length}`
     );

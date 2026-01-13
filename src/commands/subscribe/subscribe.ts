@@ -1,7 +1,6 @@
 import { Telegraf } from "telegraf";
 import { Logger } from "../../infrastructure/logger";
 import { ISubscriberRepository } from "@/repositories/ISubscriberRepository";
-import { redisRepository } from "../../repositories/redis/redisRepository";
 
 export const subscribeCommand = (
   bot: Telegraf,
