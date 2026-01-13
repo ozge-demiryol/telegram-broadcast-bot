@@ -3,11 +3,13 @@ import StatusCodes from "http-status-codes";
 import { IMessenger } from "../../infrastructure/telegram/IMessenger";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
 import { Logger } from "../../infrastructure/logger";
+import { CONFIG } from "@/config/config";
 
 export class BroadcastWorker {
   private limiter: Bottleneck;
   private queue: any[] = [];
   private isProcessing = false;
+  private chunkSize = CONFIG.TELEGRAM.RATE_LIMIT;
 
   constructor(
     private messenger: IMessenger,
@@ -121,7 +123,7 @@ export class BroadcastWorker {
       }
 
       // OPTIMIZED CHUNKING: 25 msg / 2s pause
-      if (currentIndex % 25 === 0 && currentIndex < total) {
+      if (currentIndex % this.chunkSize === 0 && currentIndex < total) {
         await new Promise((res) => setTimeout(res, 2000));
 
         // ADAPTIVE REPORTING: Only notify admin every 500 messages to prevent 429 on admin chat

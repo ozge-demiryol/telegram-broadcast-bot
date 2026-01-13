@@ -59,21 +59,4 @@ export class Database {
     }
     return Database.instance;
   }
-
-  // public static getInstance(): Pool {
-  //   if (!Database.instance) {
-  //     try {
-  //       Database.instance = mysql.createPool({
-  //         uri: CONFIG.DB.CONNECTION_STRING,
-  //         connectionLimit: 10,
-  //         enableKeepAlive: true,
-  //       });
-  //       Logger.info("Database pool created successfully.");
-  //     } catch (error) {
-  //       Logger.error("Failed to create database pool", error);
-  //       throw error;
-  //     }
-  //   }
-  //   return Database.instance;
-  // }
 }

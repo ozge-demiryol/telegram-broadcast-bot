@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS subscribers (
     isAdmin BOOLEAN DEFAULT FALSE,              -- Admin privilege (Default: No)
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Registration date
     modifiedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP -- Last update date
+
+    INDEX idx_active_users (isActive),
+    INDEX idx_admin_only (isAdmin)
 );
 
 CREATE TABLE broadcasts (
