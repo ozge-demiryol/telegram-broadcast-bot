@@ -7,15 +7,16 @@ A robust, TypeScript-powered Telegram bot designed for subscription management a
 This bot is built for broadcasting to subscribers without hitting the Telegram's rate limits and it prevents the bot being banned with its message queue system. Telegram's limit is 30 messages per minute, but it's set as 25 messages to stay at the safe zone. **It can be changed later from configuration. See: Message Queue System**
 
 ### For Users
-* **Easy Onboarding:** When a user starts the bot, they receive a warm welcome and a `/help` menu explaining what the bot can do.
-* **Simple Subscription:** Users can join your bot by sending `/subscribe` command.
-* **Opt-out Anytime:** Users can stop receiving messages by sending `/unsubscribe`.
+
+- **Easy Onboarding:** When a user starts the bot, they receive a warm welcome and a `/help` menu explaining what the bot can do.
+- **Simple Subscription:** Users can join your bot by sending `/subscribe` command.
+- **Opt-out Anytime:** Users can stop receiving messages by sending `/unsubscribe`.
 
 ### For Administrators
-* **Broadcast Messaging:** Admins can send an announcement to all subscribers by using the `/broadcast` command or simply by sending a message directly to the bot.
-* **Admin Dashboard:** Access the private `/dashboard` to view bot statistics and management tools.
-* **Admin Management:** Admins have the authority to grant or revoke administrative privileges for other users via `/grant` or `/revoke` command.
 
+- **Broadcast Messaging:** Admins can send an announcement to all subscribers by using the `/broadcast` command or simply by sending a message directly to the bot.
+- **Admin Dashboard:** Access the private `/dashboard` to view bot statistics and management tools.
+- **Admin Management:** Admins have the authority to grant or revoke administrative privileges for other users via `/grant` or `/revoke` command.
 
 ## Message Queue System
 
@@ -26,13 +27,16 @@ To prevent the bot from being banned due to exceeding Telegram's rate limits, a 
 Follow these steps to get your development environment running locally.
 
 ### 1. Fetch the Repository
+
 Clone the project from Git to your local machine:
+
 ```bash
 git clone <your-repository-url>
 cd <project-directory>
 ```
 
 ### 2. Install Dependencies
+
 Bash
 
 ```bash
@@ -56,9 +60,11 @@ Download ngrok on your computer and run this command to expose your computer to 
 ```bash
 ngrok http 3000
 ```
+
 Public URL: Use your ngrok URL into the environment variable for Webhook mode.
 
 ### 6. Dockerize Dependencies
+
 Start the MySQL and Redis (required for the queue) services:
 
 ```bash
@@ -66,11 +72,13 @@ docker compose up -d
 ```
 
 #### Execution Modes
+
 Polling Mode: Set NODE_ENV=dev or test. (Best for local testing).
 
 Webhook Mode: Set NODE_ENV=production. (Required for PUBLIC_URL usage).
 
 ### 🚀 Running the Bot
+
 Compile TypeScript to JavaScript:
 
 ```bash
@@ -82,5 +90,3 @@ Run for Debugging:
 ```bash
 npm start
 ```
-
-> Warning: Ensure Redis is running via Docker before attempting a /broadcast, as the queue system relies on it to manage message delivery.
