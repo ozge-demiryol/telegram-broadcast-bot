@@ -74,10 +74,12 @@ export class BroadcastWorker {
 
     this.isProcessing = true;
 
+    const startTime = performance.now();
+
     try {
       await this.broadcastRepo.updateStatus(nextJob.id, "processing");
 
-      await this.runBroadcast(nextJob);
+      await this.runBroadcast(nextJob, startTime);
 
       await this.broadcastRepo.updateStatus(nextJob.id, "completed");
     } catch (error) {
@@ -90,11 +92,11 @@ export class BroadcastWorker {
     }
   }
 
-  private async runBroadcast(job: any) {
+  private async runBroadcast(job: any, startTime: number) {
     const subscribers = await this.subscriberRepo.findAllActive();
 
     //TODO: FOR STRESS TESTING ONLY. Remove it before deploying
-    const stressTestData = Array.from({ length: 500 }, () => subscribers[0]);
+    const stressTestData = Array.from({ length: 100 }, () => subscribers[0]);
 
     const total = stressTestData.length;
     let sentCount = 0;
@@ -156,12 +158,21 @@ export class BroadcastWorker {
       }
     }
 
+    const endTime = performance.now();
+    const durationInMinutes = Math.floor((endTime - startTime) / 60000);
+    const durationInSeconds = Math.floor(
+      ((endTime - startTime) % 60000) / 1000
+    );
+    const durationMessage = `${durationInMinutes}m ${durationInSeconds}s`;
+
     await this.messenger.sendMessage(
       job.admin_id,
-      `✅ Broadcast Finished\nSent: ${sentCount}\nBlocked/Pruned: ${blockedCount}\nErrors: ${failedCount}`
+      `✅ Broadcast Finished\nSent: ${sentCount}\nBlocked/Pruned: ${blockedCount}\nErrors: ${failedCount}\nDuration: ${durationMessage}`
     );
 
-    Logger.info(`[Broadcast] Broadcast finished for ${total} users.`);
+    Logger.info(
+      `[Broadcast] Broadcast finished for ${total} users. Duration: ${durationMessage}`
+    );
   }
 
   private async reportProgress(
