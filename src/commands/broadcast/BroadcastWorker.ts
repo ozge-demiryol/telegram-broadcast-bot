@@ -10,7 +10,8 @@ export class BroadcastWorker {
   private limiter: Bottleneck;
   private queue: any[] = [];
   private isProcessing = false;
-  private chunkSize = CONFIG.TELEGRAM.RATE_LIMIT;
+  private chunkSize = CONFIG.TELEGRAM.CHUNK_SIZE;
+  private minTime = CONFIG.TELEGRAM.MIN_TIME;
 
   constructor(
     private messenger: IMessenger,
@@ -18,7 +19,7 @@ export class BroadcastWorker {
     private broadcastRepo: IBroadcastRepository
   ) {
     this.limiter = new Bottleneck({
-      minTime: 200, //approx. 6-7 messages per second
+      minTime: this.minTime,
       maxConcurrent: 1,
     });
 
@@ -137,7 +138,7 @@ export class BroadcastWorker {
 
       // OPTIMIZED CHUNKING: 25 msg / 2s pause
       if (currentIndex % this.chunkSize === 0 && currentIndex < total) {
-        Logger.debug(
+        Logger.info(
           `[BroadcastWorker] Chunking pause at ${currentIndex} / ${total}`
         );
 
