@@ -7,18 +7,6 @@ export const broadcastCommand = (
   subscriberRepository: ISubscriberRepository,
   broadcastWorker: BroadcastWorker
 ) => {
-  bot.command("broadcast", async (ctx) => {
-    const user = await subscriberRepository.findByTelegramId(ctx.from!.id);
-    if (!user?.isAdmin) {
-      return ctx.reply("Only admins can broadcast");
-    }
-
-    return ctx.reply(
-      "Please *send* or *forward* the message (text/media) to broadcast.",
-      { parse_mode: "Markdown" }
-    );
-  });
-
   // Listener for the message to be broadcasted
   bot.on("message", async (ctx) => {
     const user = await subscriberRepository.findByTelegramId(ctx.from!.id);

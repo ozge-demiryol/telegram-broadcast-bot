@@ -9,7 +9,11 @@ export const helpCommand = (bot: Telegraf) => {
 /unsubscribe - Unsubscribe from broadcasts
 /help - Show this help message
 /dashboard - Show admin dashboard (Admin only)
-/broadcast - Send message to all subscribers (Admin only)
+
+How to use:
+
+1. To subscribe, simply send /subscribe.
+2. To share a text or media (photo, video, document), simply send it to the bot (admins only).
     `.trim();
 
     await ctx.reply(helpText, { parse_mode: "Markdown" });

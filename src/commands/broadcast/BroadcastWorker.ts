@@ -24,11 +24,23 @@ export class BroadcastWorker {
       maxConcurrent: CONFIG.TELEGRAM.CONCURRENT_REQUESTS,
     });
 
-    // Dynamic wait on Telegram 429 (Too Many Requests) error
+    // Handle rate limits and retries globally
     this.limiter.on("failed", async (error, jobInfo) => {
       if (error.response?.error_code === StatusCodes.TOO_MANY_REQUESTS) {
-        return (error.response.parameters?.retry_after || 5) * 1000;
+        const retryAfter = error.response.parameters?.retry_after || 5;
+        // Add a 1-second buffer to be safe
+        const waitTime = retryAfter * 1000 + 1000;
+
+        Logger.warn(
+          `Telegram Rate Limit hit. Waiting ${waitTime}ms before retry...`
+        );
+
+        // Returning a number tells Bottleneck to wait and then retry this job
+        return waitTime;
       }
+
+      // For other errors (403, 400, etc.), do not retry
+      return null;
     });
   }
 
@@ -92,9 +104,13 @@ export class BroadcastWorker {
 
     // Fetch active subscribers
     const subscribers = await this.subscriberRepo.findAllActive();
-    Logger.info(`[BroadcastWorker] Found subscribers: ${subscribers.length}`);
+    //TODO: FOR STRESS TESTING ONLY. Remove it before deploying
+    const stressTestData = Array.from({ length: 255 }, () => subscribers[0]);
+    Logger.info(
+      `[BroadcastWorker] Found subscribers: ${stressTestData.length}`
+    );
 
-    for (const row of subscribers) {
+    for (const row of stressTestData) {
       // Add task to limiter and store the promise
       const promise = this.limiter.schedule(async () => {
         try {
@@ -121,6 +137,13 @@ export class BroadcastWorker {
             await this.subscriberRepo
               .setActiveStatus(row.telegramId, false)
               .catch(() => {});
+          }
+
+          if (error.response?.error_code === StatusCodes.TOO_MANY_REQUESTS) {
+            // Add a 500ms buffer to the recommended wait time
+            const waitTime =
+              (error.response.parameters?.retry_after || 5) * 1000 + 500;
+            Logger.warn(`[Broadcast] Rate limited. Waiting ${waitTime}ms`);
           }
         }
 
