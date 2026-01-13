@@ -19,5 +19,6 @@ CREATE TABLE broadcasts (
     message_id BIGINT,
     chat_id BIGINT,
     status ENUM('pending', 'processing', 'completed') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    modifiedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

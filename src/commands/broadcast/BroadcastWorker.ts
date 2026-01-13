@@ -3,7 +3,8 @@ import StatusCodes from "http-status-codes";
 import { IMessenger } from "../../infrastructure/telegram/IMessenger";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
 import { Logger } from "../../infrastructure/logger";
-import { CONFIG } from "@/config/config";
+import { CONFIG } from "../../config/config";
+import { IBroadcastRepository } from "@/repositories/broadcast/IBroadcastRepository";
 
 export class BroadcastWorker {
   private limiter: Bottleneck;
@@ -14,7 +15,7 @@ export class BroadcastWorker {
   constructor(
     private messenger: IMessenger,
     private subscriberRepo: ISubscriberRepository,
-    private db: any
+    private broadcastRepo: IBroadcastRepository
   ) {
     this.limiter = new Bottleneck({
       minTime: 200, //approx. 6-7 messages per second
@@ -54,6 +55,7 @@ export class BroadcastWorker {
       message_id: messageId,
       chat_id: chatId,
     });
+
     if (!this.isProcessing) {
       this.processQueue().catch((err) =>
         Logger.error("[Critical] Queue crash prevented", err)
@@ -62,17 +64,28 @@ export class BroadcastWorker {
   }
 
   private async processQueue() {
-    if (this.queue.length === 0) {
+    const nextJob = await this.broadcastRepo.getNextPendingBroadcast();
+
+    if (!nextJob) {
       this.isProcessing = false;
       return;
     }
+
     this.isProcessing = true;
-    const currentJob = this.queue.shift();
+
     try {
-      await this.runBroadcast(currentJob);
+      await this.broadcastRepo.updateStatus(nextJob.id, "processing");
+
+      await this.runBroadcast(nextJob);
+
+      await this.broadcastRepo.updateStatus(nextJob.id, "completed");
+    } catch (error) {
+      Logger.error(`[BroadcastWorker] Job ${nextJob.id} failed`, error);
     } finally {
-      this.isProcessing = false;
-      if (this.queue.length > 0) await this.processQueue();
+      if (this.queue.length > 0) {
+        this.queue.shift(); // Clean the queue
+      }
+      await this.processQueue();
     }
   }
 
@@ -87,7 +100,7 @@ export class BroadcastWorker {
     let failedCount = 0;
     let blockedCount = 0;
 
-    Logger.info(`[Broadcast] Safety protocol initiated for ${total} users.`);
+    Logger.info(`[Broadcast] Broadcast started for ${total} users.`);
 
     for (let i = 0; i < total; i++) {
       const subscriber = stressTestData[i];
@@ -124,6 +137,10 @@ export class BroadcastWorker {
 
       // OPTIMIZED CHUNKING: 25 msg / 2s pause
       if (currentIndex % this.chunkSize === 0 && currentIndex < total) {
+        Logger.debug(
+          `[BroadcastWorker] Chunking pause at ${currentIndex} / ${total}`
+        );
+
         await new Promise((res) => setTimeout(res, 2000));
 
         // ADAPTIVE REPORTING: Only notify admin every 500 messages to prevent 429 on admin chat
@@ -142,6 +159,8 @@ export class BroadcastWorker {
       job.admin_id,
       `✅ Broadcast Finished\nSent: ${sentCount}\nBlocked/Pruned: ${blockedCount}\nErrors: ${failedCount}`
     );
+
+    Logger.info(`[Broadcast] Broadcast finished for ${total} users.`);
   }
 
   private async reportProgress(
@@ -154,7 +173,7 @@ export class BroadcastWorker {
     const totalProcessed = sent + failed + blocked;
     await this.messenger.sendMessage(
       adminId,
-      `📊 Progress: ${totalProcessed} users reached. (Cleaned: ${blocked})`
+      `📊 Progress: ${totalProcessed} users reached`
     );
   }
 }

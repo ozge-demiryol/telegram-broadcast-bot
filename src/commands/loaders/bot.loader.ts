@@ -35,7 +35,12 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
     dashboardCommand(bot, subscriberRepository);
     grantCommand(bot, subscriberRepository);
     revokeCommand(bot, subscriberRepository);
-    broadcastCommand(bot, subscriberRepository, broadcastWorker);
+    broadcastCommand(
+      bot,
+      subscriberRepository,
+      broadcastRepository,
+      broadcastWorker
+    );
 
     Logger.info("Bot features (commands) loaded successfully.");
   } catch (error) {
