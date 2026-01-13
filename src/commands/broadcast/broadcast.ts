@@ -17,9 +17,6 @@ export const broadcastCommand = (
       return;
     }
 
-    //TODO: Remove it before deploying
-    //const subscribers = [1350947148, 784765731];
-
     //STEP 1: Check ongoing broadcasts
     const ongoing = await broadcastRepository.getOngoingBroadcasts();
     const isOngoing = ongoing.length > 0;
