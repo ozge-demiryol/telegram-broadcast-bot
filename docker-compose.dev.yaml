@@ -13,38 +13,5 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
 
-  # redis:
-  #   image: redis:alpine
-  #   container_name: redis_queue
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - redis_data:/data
-
 volumes:
   mysql_data:
-#  redis_data:
-# version: "3.8"
-
-# services:
-#   db:
-#     image: mysql:8.0
-#     container_name: mysql_dev_container
-#     platform: linux/amd64
-#     restart: always
-#     environment:
-#       MYSQL_ROOT_PASSWORD: rootpassword
-#       MYSQL_DATABASE: telegram_bot
-#     ports:
-#       - "3306:3306"
-#     volumes:
-#       - mysql_dev_data:/var/lib/mysql
-#   redis:
-#     image: redis:7.0-alpine
-#     container_name: redis_dev
-#     ports:
-#       - "6379:6379"
-
-# volumes:
-#   mysql_dev_data:
-#   redis_dev_data:
