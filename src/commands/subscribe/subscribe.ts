@@ -1,11 +1,12 @@
 import { Telegraf } from "telegraf";
-import { Logger } from "../../infrastructure/logger";
+import { GetLogger } from "../../infrastructure/logger";
 import { ISubscriberRepository } from "@/repositories/ISubscriberRepository";
 
 export const subscribeCommand = (
   bot: Telegraf,
   subscriberRepository: ISubscriberRepository
 ) => {
+  const logger = GetLogger("SubscribeCommand");
   bot.command("subscribe", async (ctx) => {
     try {
       if (!ctx.from) {
@@ -18,13 +19,13 @@ export const subscribeCommand = (
         false
       );
 
-      Logger.info("Subscribed. User ID:", { userId: ctx.from.id });
+      logger.info("Subscribed. User ID:", { userId: ctx.from.id });
       await ctx.reply("Subscribed! 🎉");
     } catch (error) {
-      Logger.error("Subscribe error:", error);
+      logger.error("Subscribe error:", error);
       await ctx
         .reply("An error occurred while subscribing.")
-        .catch((err) => Logger.error("Reply error:", err));
+        .catch((err) => logger.error("Reply error:", err));
     }
   });
 };

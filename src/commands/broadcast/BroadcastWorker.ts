@@ -2,7 +2,7 @@ import Bottleneck from "bottleneck";
 import StatusCodes from "http-status-codes";
 import { IMessenger } from "../../infrastructure/telegram/IMessenger";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
-import { Logger } from "../../infrastructure/logger";
+import { GetLogger } from "../../infrastructure/logger";
 import { CONFIG } from "../../config/config";
 import { IBroadcastRepository } from "../../repositories/broadcast/IBroadcastRepository";
 import { Subscriber } from "../../repositories/Subscriber";
@@ -14,6 +14,7 @@ export class BroadcastWorker {
   private chunkSize = CONFIG.TELEGRAM.CHUNK_SIZE;
   private minTime = CONFIG.TELEGRAM.MIN_TIME;
   private pageSize = CONFIG.TELEGRAM.PAGE_SIZE;
+  private logger = GetLogger("BroadcastWorker");
 
   constructor(
     private messenger: IMessenger,
@@ -36,7 +37,7 @@ export class BroadcastWorker {
       if (error.response?.error_code === StatusCodes.TOO_MANY_REQUESTS) {
         const retryAfter = error.response.parameters?.retry_after || 60;
         const waitTime = retryAfter * 1000 + 5000; // Extra generous buffer
-        Logger.warn(
+        this.logger.warn(
           `[Spam Guard] Rate limit at ${id}. Cooling down for ${waitTime} ms...`
         );
         return waitTime;
@@ -44,7 +45,9 @@ export class BroadcastWorker {
 
       // 2. Handle Timeouts & Network Flaps
       if (error.name === "TimeoutError" || error.code === "ETIMEDOUT") {
-        Logger.error(`[Network] Timeout at ${id}. Waiting 7s before retry.`);
+        this.logger.error(
+          `[Network] Timeout at ${id}. Waiting 7s before retry.`
+        );
         return 7000;
       }
 
@@ -61,7 +64,7 @@ export class BroadcastWorker {
 
     if (!this.isProcessing) {
       this.processQueue().catch((err) =>
-        Logger.error("[Critical] Queue crash prevented", err)
+        this.logger.error("[Critical] Queue crash prevented", err)
       );
     }
   }
@@ -85,7 +88,7 @@ export class BroadcastWorker {
 
       await this.broadcastRepo.updateStatus(nextJob.id, "completed");
     } catch (error) {
-      Logger.error(`[BroadcastWorker] Job ${nextJob.id} failed`, error);
+      this.logger.error(`[BroadcastWorker] Job ${nextJob.id} failed`, error);
     } finally {
       if (this.queue.length > 0) {
         this.queue.shift(); // Clean the queue
@@ -103,7 +106,7 @@ export class BroadcastWorker {
 
     const total = subscribers.length;
 
-    Logger.info(`[Broadcast] Broadcast started for ${total} users.`);
+    this.logger.info(`[Broadcast] Broadcast started for ${total} users.`);
 
     for (let i = 0; i < total; i++) {
       const subscriber = subscribers[i];
@@ -116,7 +119,7 @@ export class BroadcastWorker {
             job.chat_id,
             job.message_id
           );
-          Logger.debug(
+          this.logger.debug(
             `[BroadcastWorker] - [${currentIndex} / ${total}] Sending to: ${subscriber.telegramId} from: ${job.chat_id} msgId: ${job.message_id}`
           );
           sentCount++;
@@ -129,18 +132,18 @@ export class BroadcastWorker {
             subscriber.telegramId,
             false
           );
-          Logger.debug(
+          this.logger.debug(
             `[Pruning] User ${subscriber.telegramId} marked as inactive (Blocked bot).`
           );
         } else {
           failedCount++;
-          Logger.error(`[Error] msg-${currentIndex}: ${error.message}`);
+          this.logger.error(`[Error] msg-${currentIndex}: ${error.message}`);
         }
       }
 
       // OPTIMIZED CHUNKING: 25 msg / 2s pause
       if (currentIndex % this.chunkSize === 0 && currentIndex < total) {
-        Logger.info(
+        this.logger.info(
           `[BroadcastWorker] Chunking pause at ${currentIndex} / ${total}`
         );
 
@@ -154,7 +157,7 @@ export class BroadcastWorker {
             failedCount,
             blockedCount
           ).catch((error) => {
-            Logger.error(
+            this.logger.error(
               "[BroadcastWorker] Failed to report progress to admin",
               error
             );
@@ -175,7 +178,7 @@ export class BroadcastWorker {
       `✅ Broadcast Finished\nSent: ${sentCount}\nBlocked/Pruned: ${blockedCount}\nErrors: ${failedCount}\nDuration: ${durationMessage}`
     );
 
-    Logger.info(
+    this.logger.info(
       `[Broadcast] Broadcast finished for ${total} users. Duration: ${durationMessage}`
     );
   }
@@ -210,7 +213,7 @@ export class BroadcastWorker {
     // const stream = Array.from({ length: 100 }, () => subscribers[0]);
     // totalUsers = stream.length;
 
-    Logger.info(`[Broadcast] Broadcast started for ${totalUsers} users.`);
+    this.logger.info(`[Broadcast] Broadcast started for ${totalUsers} users.`);
 
     while (hasMore) {
       let batchSize = 0;
@@ -226,7 +229,7 @@ export class BroadcastWorker {
         currentIndex++;
         lastId = subscriber.id;
 
-        Logger.debug(`[BroadcastWorker] - Batch size: ${batchSize}`);
+        this.logger.debug(`[BroadcastWorker] - Batch size: ${batchSize}`);
 
         try {
           await this.limiter.schedule(
@@ -237,7 +240,7 @@ export class BroadcastWorker {
                 job.chat_id,
                 job.message_id
               );
-              Logger.debug(
+              this.logger.debug(
                 `[BroadcastWorker] - [${currentIndex} / ${totalUsers}] Sent: ${subscriber.telegramId}`
               );
               sentCount++;
@@ -248,7 +251,9 @@ export class BroadcastWorker {
             currentIndex % this.chunkSize === 0 &&
             currentIndex < totalUsers
           ) {
-            Logger.info(`[BroadcastWorker] Chunking pause at ${currentIndex}`);
+            this.logger.info(
+              `[BroadcastWorker] Chunking pause at ${currentIndex}`
+            );
             await new Promise((res) => setTimeout(res, 2000));
 
             if (currentIndex % 50 === 0) {
@@ -258,7 +263,7 @@ export class BroadcastWorker {
                 failedCount,
                 blockedCount
               ).catch((error) => {
-                Logger.error(
+                this.logger.error(
                   "[BroadcastWorker] Failed to report progress to admin",
                   error
                 );
@@ -272,12 +277,12 @@ export class BroadcastWorker {
               subscriber.telegramId,
               false
             );
-            Logger.debug(
+            this.logger.debug(
               `[Pruning] User ${subscriber.telegramId} marked as inactive.`
             );
           } else {
             failedCount++;
-            Logger.error(`[Error] msg-${currentIndex}: ${error.message}`);
+            this.logger.error(`[Error] msg-${currentIndex}: ${error.message}`);
           }
         }
       }
@@ -299,7 +304,7 @@ export class BroadcastWorker {
       `✅ Broadcast Finished\nSent: ${sentCount}\nBlocked/Pruned: ${blockedCount}\nErrors: ${failedCount}\nDuration: ${durationMessage}`
     );
 
-    Logger.info(
+    this.logger.info(
       `[Broadcast] Broadcast finished for ${totalUsers} users. Duration: ${durationMessage}`
     );
   }

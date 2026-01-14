@@ -1,7 +1,9 @@
 import { redisClient } from "../../infrastructure/redisClient";
-import { Logger } from "../../infrastructure/logger";
+import { GetLogger } from "../../infrastructure/logger";
 
 class RedisRepository {
+  private logger = GetLogger("RedisRepository");
+
   public async set(
     key: string,
     value: string,
@@ -14,9 +16,9 @@ class RedisRepository {
       } else {
         await client.set(key, value);
       }
-      Logger.info(`[Redis] Success: Set key "${key}"`);
+      this.logger.info(`[Redis] Success: Set key "${key}"`);
     } catch (error) {
-      Logger.error(`[Redis] Failed to set key "${key}":`, error);
+      this.logger.error(`[Redis] Failed to set key "${key}":`, error);
       throw error;
     }
   }
@@ -25,10 +27,10 @@ class RedisRepository {
     try {
       const client = redisClient.getClient();
       const data = await client.get(key);
-      Logger.info(`[Redis] Success: Get key "${key}"`);
+      this.logger.info(`[Redis] Success: Get key "${key}"`);
       return data;
     } catch (error) {
-      Logger.error(`[Redis] Failed to get key "${key}":`, error);
+      this.logger.error(`[Redis] Failed to get key "${key}":`, error);
       throw error;
     }
   }
@@ -39,16 +41,16 @@ class RedisRepository {
       const result = await client.sadd(key, value);
 
       if (result === 1) {
-        Logger.info(`[Redis] Set: Added "${value}" to key "${key}"`);
+        this.logger.info(`[Redis] Set: Added "${value}" to key "${key}"`);
       } else {
-        Logger.info(
+        this.logger.info(
           `[Redis] Set: Member "${value}" already exists in "${key}"`
         );
       }
 
       return result;
     } catch (error) {
-      Logger.error(`[Redis] Failed to add to set "${key}":`, error);
+      this.logger.error(`[Redis] Failed to add to set "${key}":`, error);
       throw error;
     }
   }
@@ -57,12 +59,15 @@ class RedisRepository {
     try {
       const client = redisClient.getClient();
       const members = await client.smembers(key);
-      Logger.info(
+      this.logger.info(
         `[Redis] Set: Retrieved ${members.length} members from "${key}"`
       );
       return members;
     } catch (error) {
-      Logger.error(`[Redis] Failed to get set members for "${key}":`, error);
+      this.logger.error(
+        `[Redis] Failed to get set members for "${key}":`,
+        error
+      );
       throw error;
     }
   }
@@ -74,9 +79,9 @@ class RedisRepository {
     try {
       const client = redisClient.getClient();
       await client.hset(key, data);
-      Logger.info(`[Redis] Hash: Set fields in "${key}"`);
+      this.logger.info(`[Redis] Hash: Set fields in "${key}"`);
     } catch (error) {
-      Logger.error(`[Redis] Failed to hset "${key}":`, error);
+      this.logger.error(`[Redis] Failed to hset "${key}":`, error);
       throw error;
     }
   }
@@ -89,12 +94,12 @@ class RedisRepository {
     try {
       const client = redisClient.getClient();
       const result = await client.hincrby(key, field, increment);
-      Logger.debug(
+      this.logger.debug(
         `[Redis] Hash: Incremented "${field}" in "${key}" by ${increment}`
       );
       return result;
     } catch (error) {
-      Logger.error(`[Redis] Failed to hincrby "${key}":`, error);
+      this.logger.error(`[Redis] Failed to hincrby "${key}":`, error);
       throw error;
     }
   }
@@ -103,10 +108,10 @@ class RedisRepository {
     try {
       const client = redisClient.getClient();
       const data = await client.hgetall(key);
-      Logger.debug(`[Redis] Hash: Retrieved all fields from "${key}"`);
+      this.logger.debug(`[Redis] Hash: Retrieved all fields from "${key}"`);
       return data;
     } catch (error) {
-      Logger.error(`[Redis] Failed to hgetall "${key}":`, error);
+      this.logger.error(`[Redis] Failed to hgetall "${key}":`, error);
       throw error;
     }
   }
@@ -115,9 +120,9 @@ class RedisRepository {
     try {
       const client = redisClient.getClient();
       await client.expire(key, seconds);
-      Logger.debug(`[Redis] Set expiry for "${key}" to ${seconds}s`);
+      this.logger.debug(`[Redis] Set expiry for "${key}" to ${seconds}s`);
     } catch (error) {
-      Logger.error(`[Redis] Failed to set expire "${key}":`, error);
+      this.logger.error(`[Redis] Failed to set expire "${key}":`, error);
       throw error;
     }
   }

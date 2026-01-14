@@ -3,7 +3,7 @@ import { subscribeCommand } from "../subscribe/subscribe";
 import { broadcastCommand } from "../broadcast/broadcast";
 import { helpCommand } from "../help/help";
 import { startCommand } from "../start/start";
-import { Logger } from "../../infrastructure/logger";
+import { GetLogger } from "../../infrastructure/logger";
 import { SubscriberRepository } from "../../repositories/SubscriberRepository";
 import { unsubscribeCommand } from "../unsubscribe/unsubscribe";
 import { Pool } from "mysql2/promise";
@@ -15,8 +15,9 @@ import { TelegramMessenger } from "../../infrastructure/telegram/TelegramMesseng
 import { BroadcastRepository } from "../../repositories/broadcast/BroadcastRepository";
 
 export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
+  const logger = GetLogger("BotFeatures");
   try {
-    Logger.info("Initializing bot features and dependencies...");
+    logger.info("Initializing bot features and dependencies...");
 
     const subscriberRepository = new SubscriberRepository(db);
     const broadcastRepository = new BroadcastRepository(db);
@@ -42,9 +43,9 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
       broadcastWorker
     );
 
-    Logger.info("Bot features (commands) loaded successfully.");
+    logger.info("Bot features (commands) loaded successfully.");
   } catch (error) {
-    Logger.error(
+    logger.error(
       "CRITICAL: Failed to load bot features during bootstrap",
       error
     );

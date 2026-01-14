@@ -1,10 +1,11 @@
 import Redis, { RedisOptions } from "ioredis";
 import { CONFIG } from "../config/config";
-import { Logger } from "./logger";
+import { GetLogger } from "./logger";
 
 class RedisClient {
   private static instance: RedisClient;
   private client: Redis;
+  private logger = GetLogger("RedisClient");
 
   private constructor() {
     const options: RedisOptions = {
@@ -31,28 +32,28 @@ class RedisClient {
 
   private initializeEventHandlers() {
     this.client.on("connect", () => {
-      Logger.info("--- [Redis] Status: Connecting... ---");
+      this.logger.info("--- [Redis] Status: Connecting... ---");
     });
 
     this.client.on("ready", () => {
-      Logger.info("--- [Redis] Status: Ready and Connected! ---");
+      this.logger.info("--- [Redis] Status: Ready and Connected! ---");
     });
 
     this.client.on("error", (err) => {
-      Logger.error(`--- [Redis] Error: ${err.message} ---`);
+      this.logger.error(`--- [Redis] Error: ${err.message} ---`);
     });
 
     this.client.on("reconnecting", () => {
-      Logger.warn("--- [Redis] Status: Attempting to reconnect... ---");
+      this.logger.warn("--- [Redis] Status: Attempting to reconnect... ---");
     });
 
     this.client.on("end", () => {
-      Logger.info("--- [Redis] Status: Connection closed. ---");
+      this.logger.info("--- [Redis] Status: Connection closed. ---");
     });
   }
 
   public async quit(): Promise<void> {
-    Logger.info("[Redis] Closing connection...");
+    this.logger.info("[Redis] Closing connection...");
     await this.client.quit();
   }
 

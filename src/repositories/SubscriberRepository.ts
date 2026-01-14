@@ -1,10 +1,11 @@
 import { Pool, RowDataPacket } from "mysql2/promise";
 import { ISubscriberRepository } from "@/repositories/ISubscriberRepository";
 import { Subscriber } from "./Subscriber";
-import { Logger } from "../infrastructure/logger";
+import { GetLogger } from "../infrastructure/logger";
 import { Readable } from "stream";
 
 export class SubscriberRepository implements ISubscriberRepository {
+  private logger = GetLogger("SubscriberRepository");
   constructor(private db: Pool) {}
 
   async subscribe(
@@ -32,9 +33,9 @@ export class SubscriberRepository implements ISubscriberRepository {
 
     try {
       await this.db.query(sql, [telegramId, username.trim(), isAdmin]);
-      Logger.info(`User ${telegramId} successfully subscribed.`);
+      this.logger.info(`User ${telegramId} successfully subscribed.`);
     } catch (error) {
-      Logger.error(
+      this.logger.error(
         `Database Error in subscribe() for user ${telegramId}`,
         error
       );
@@ -55,7 +56,10 @@ export class SubscriberRepository implements ISubscriberRepository {
 
       return (rows as Subscriber[])[0];
     } catch (error) {
-      Logger.error(`Error in findByTelegramId() for id ${telegramId}`, error);
+      this.logger.error(
+        `Error in findByTelegramId() for id ${telegramId}`,
+        error
+      );
       throw error;
     }
   }
@@ -67,7 +71,7 @@ export class SubscriberRepository implements ISubscriberRepository {
       );
       return rows as Subscriber[];
     } catch (error) {
-      Logger.error("Error in findAllActive()", error);
+      this.logger.error("Error in findAllActive()", error);
       throw error;
     }
   }
@@ -88,7 +92,10 @@ export class SubscriberRepository implements ISubscriberRepository {
         [isActive, telegramId]
       );
     } catch (error) {
-      Logger.error(`Error in setActiveStatus() for id ${telegramId}`, error);
+      this.logger.error(
+        `Error in setActiveStatus() for id ${telegramId}`,
+        error
+      );
       throw error;
     }
   }
@@ -100,7 +107,10 @@ export class SubscriberRepository implements ISubscriberRepository {
         [isAdmin, telegramId]
       );
     } catch (error) {
-      Logger.error(`Error in setAdminStatus() for id ${telegramId}`, error);
+      this.logger.error(
+        `Error in setAdminStatus() for id ${telegramId}`,
+        error
+      );
       throw error;
     }
   }
@@ -110,7 +120,7 @@ export class SubscriberRepository implements ISubscriberRepository {
       const user = await this.findByTelegramId(telegramId);
       return user?.isAdmin ?? false;
     } catch (error) {
-      Logger.error(`Error in isAdmin() for id ${telegramId}`, error);
+      this.logger.error(`Error in isAdmin() for id ${telegramId}`, error);
       throw error;
     }
   }
@@ -128,7 +138,10 @@ export class SubscriberRepository implements ISubscriberRepository {
 
       return (rows as Subscriber[])[0];
     } catch (error) {
-      Logger.error(`Error in findByUsername() for username ${username}`, error);
+      this.logger.error(
+        `Error in findByUsername() for username ${username}`,
+        error
+      );
       throw error;
     }
   }
@@ -140,7 +153,7 @@ export class SubscriberRepository implements ISubscriberRepository {
         [telegramId]
       );
     } catch (error) {
-      Logger.error(`Error in unsubscribe() for id ${telegramId}`, error);
+      this.logger.error(`Error in unsubscribe() for id ${telegramId}`, error);
       throw error;
     }
   }
@@ -154,7 +167,7 @@ export class SubscriberRepository implements ISubscriberRepository {
       const total = rows.length > 0 ? rows[0].count : 0;
       return Number(total);
     } catch (error) {
-      Logger.error("Error in countTotalSubscribers()", error);
+      this.logger.error("Error in countTotalSubscribers()", error);
       throw error;
     }
   }

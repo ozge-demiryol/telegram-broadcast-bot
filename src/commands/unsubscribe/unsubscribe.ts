@@ -1,4 +1,4 @@
-import { Logger } from "../../infrastructure/logger";
+import { GetLogger } from "../../infrastructure/logger";
 import { Telegraf } from "telegraf";
 import { ISubscriberRepository } from "@/repositories/ISubscriberRepository";
 
@@ -6,6 +6,8 @@ export const unsubscribeCommand = (
   bot: Telegraf,
   subscriberRepository: ISubscriberRepository
 ) => {
+  const logger = GetLogger("UnsubscribeCommand");
+
   bot.command("unsubscribe", async (ctx) => {
     try {
       if (!ctx.from) {
@@ -14,13 +16,13 @@ export const unsubscribeCommand = (
 
       await subscriberRepository.unsubscribe(ctx.from.id);
 
-      Logger.info("Unsubscribed. User ID:", { userId: ctx.from.id });
+      logger.info("Unsubscribed. User ID:", { userId: ctx.from.id });
       await ctx.reply("Unsubscribed");
     } catch (error) {
-      Logger.error("Unsubscribe error:", error);
+      logger.error("Unsubscribe error:", error);
       await ctx
         .reply("An error occurred while unsubscribing.")
-        .catch((err) => Logger.error("Reply error:", err));
+        .catch((err) => logger.error("Reply error:", err));
     }
   });
 };

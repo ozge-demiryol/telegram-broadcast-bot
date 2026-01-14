@@ -1,16 +1,17 @@
 import { Telegraf } from "telegraf";
-import { Logger } from "../../infrastructure/logger";
+import { GetLogger } from "../../infrastructure/logger";
 
 export const startCommand = (bot: Telegraf) => {
+  const logger = GetLogger("StartCommand");
   bot.command("start", async (ctx) => {
     try {
-      Logger.info("Received /start command from user", {
+      logger.info("Received /start command from user", {
         userId: ctx.from?.id,
       });
       await ctx.reply("Welcome! Use /help to see available commands.");
-      Logger.info("Start command response sent");
+      logger.info("Start command response sent");
     } catch (error) {
-      Logger.error("Failed to send start command response", error);
+      logger.error("Failed to send start command response", error);
     }
   });
 };
