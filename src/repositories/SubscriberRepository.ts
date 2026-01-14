@@ -77,12 +77,17 @@ export class SubscriberRepository implements ISubscriberRepository {
   }
 
   getSubscribersStream(lastId: number, limit: number): Readable {
-    return this.db.pool
-      .query(
-        "SELECT * FROM subscribers WHERE isActive = true AND id > ? ORDER BY id ASC LIMIT ?",
-        [lastId, limit]
-      )
-      .stream();
+    try {
+      return this.db.pool
+        .query(
+          "SELECT * FROM subscribers WHERE isActive = true AND id > ? ORDER BY id ASC LIMIT ?",
+          [lastId, limit]
+        )
+        .stream();
+    } catch (error) {
+      this.logger.error("Error in getSubscribersStream()", error);
+      return Readable.from([]);
+    }
   }
 
   async setActiveStatus(telegramId: number, isActive: boolean): Promise<void> {

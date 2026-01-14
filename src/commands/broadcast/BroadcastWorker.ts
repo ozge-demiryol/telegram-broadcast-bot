@@ -44,7 +44,11 @@ export class BroadcastWorker {
       }
 
       // 2. Handle Timeouts & Network Flaps
-      if (error.name === "TimeoutError" || error.code === "ETIMEDOUT") {
+      if (
+        error.name === "TimeoutError" ||
+        error.code === "ETIMEDOUT" ||
+        error.code === "ECONNREFUSED"
+      ) {
         this.logger.error(
           `[Network] Timeout at ${id}. Waiting 7s before retry.`
         );
