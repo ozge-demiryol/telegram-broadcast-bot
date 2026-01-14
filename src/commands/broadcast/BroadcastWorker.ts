@@ -256,7 +256,7 @@ export class BroadcastWorker {
             );
             await new Promise((res) => setTimeout(res, 2000));
 
-            if (currentIndex % 50 === 0) {
+            if (currentIndex % 500 === 0) {
               this.reportProgress(
                 job.admin_id,
                 sentCount,
