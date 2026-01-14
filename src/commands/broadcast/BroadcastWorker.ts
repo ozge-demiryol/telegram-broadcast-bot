@@ -92,7 +92,7 @@ export class BroadcastWorker {
 
       await this.broadcastRepo.updateStatus(nextJob.id, "completed");
     } catch (error) {
-      this.logger.error(`[BroadcastWorker] Job ${nextJob.id} failed`, error);
+      this.logger.error(`Job ${nextJob.id} failed`, error);
     } finally {
       if (this.queue.length > 0) {
         this.queue.shift(); // Clean the queue
@@ -124,7 +124,7 @@ export class BroadcastWorker {
             job.message_id
           );
           this.logger.debug(
-            `[BroadcastWorker] - [${currentIndex} / ${total}] Sending to: ${subscriber.telegramId} from: ${job.chat_id} msgId: ${job.message_id}`
+            `[${currentIndex} / ${total}] Sending to: ${subscriber.telegramId} from: ${job.chat_id} msgId: ${job.message_id}`
           );
           sentCount++;
         });
@@ -147,9 +147,7 @@ export class BroadcastWorker {
 
       // OPTIMIZED CHUNKING: 25 msg / 2s pause
       if (currentIndex % this.chunkSize === 0 && currentIndex < total) {
-        this.logger.info(
-          `[BroadcastWorker] Chunking pause at ${currentIndex} / ${total}`
-        );
+        this.logger.info(`Chunking pause at ${currentIndex} / ${total}`);
 
         await new Promise((res) => setTimeout(res, 2000));
 
@@ -161,10 +159,7 @@ export class BroadcastWorker {
             failedCount,
             blockedCount
           ).catch((error) => {
-            this.logger.error(
-              "[BroadcastWorker] Failed to report progress to admin",
-              error
-            );
+            this.logger.error("Failed to report progress to admin", error);
           });
         }
       }
@@ -212,10 +207,6 @@ export class BroadcastWorker {
     let currentIndex = 0;
 
     let totalUsers = await this.subscriberRepo.countTotalSubcribers();
-    //TODO: FOR STRESS TESTING ONLY. Remove it before deploying
-    // const subscribers = await this.subscriberRepo.getSubscribers();
-    // const stream = Array.from({ length: 100 }, () => subscribers[0]);
-    // totalUsers = stream.length;
 
     this.logger.info(`[Broadcast] Broadcast started for ${totalUsers} users.`);
 
@@ -233,7 +224,7 @@ export class BroadcastWorker {
         currentIndex++;
         lastId = subscriber.id;
 
-        this.logger.debug(`[BroadcastWorker] - Batch size: ${batchSize}`);
+        this.logger.debug(`Batch size: ${batchSize}`);
 
         try {
           await this.limiter.schedule(
@@ -245,7 +236,7 @@ export class BroadcastWorker {
                 job.message_id
               );
               this.logger.debug(
-                `[BroadcastWorker] - [${currentIndex} / ${totalUsers}] Sent: ${subscriber.telegramId}`
+                `[${currentIndex} / ${totalUsers}] Sent: ${subscriber.telegramId}`
               );
               sentCount++;
             }
@@ -255,9 +246,7 @@ export class BroadcastWorker {
             currentIndex % this.chunkSize === 0 &&
             currentIndex < totalUsers
           ) {
-            this.logger.info(
-              `[BroadcastWorker] Chunking pause at ${currentIndex}`
-            );
+            this.logger.info(`Chunking pause at ${currentIndex}`);
             await new Promise((res) => setTimeout(res, 2000));
 
             if (currentIndex % 500 === 0) {
@@ -267,10 +256,7 @@ export class BroadcastWorker {
                 failedCount,
                 blockedCount
               ).catch((error) => {
-                this.logger.error(
-                  "[BroadcastWorker] Failed to report progress to admin",
-                  error
-                );
+                this.logger.error("Failed to report progress to admin", error);
               });
             }
           }
@@ -294,6 +280,9 @@ export class BroadcastWorker {
       if (batchSize === 0 || batchSize < PAGE_SIZE) {
         hasMore = false;
       }
+      this.logger.info(
+        `Batch message sending completed for ${currentIndex} subscribers`
+      );
     }
 
     const endTime = performance.now();
