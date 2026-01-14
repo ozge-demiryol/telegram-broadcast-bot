@@ -1,9 +1,11 @@
+import { Readable } from "stream";
 import { Subscriber } from "./Subscriber";
 
 export interface ISubscriberRepository {
   findByTelegramId(telegramId: number): Promise<Subscriber | null>;
   findByUsername(username: string): Promise<Subscriber | null>;
-  findAllActive(): Promise<Subscriber[]>;
+  getSubscribers(): Promise<Subscriber[]>;
+  getSubscribersStream(lastId: number, limit: number): Readable;
   setActiveStatus(telegramId: number, isActive: boolean): Promise<void>;
   setAdminStatus(telegramId: number, isAdmin: boolean): Promise<void>;
   isAdmin(telegramId: number): Promise<boolean>;
@@ -13,4 +15,5 @@ export interface ISubscriberRepository {
     isAdmin: boolean
   ): Promise<void>;
   unsubscribe(telegramId: number): Promise<void>;
+  countTotalSubcribers(): Promise<number>;
 }

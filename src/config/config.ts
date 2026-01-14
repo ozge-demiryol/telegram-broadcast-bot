@@ -25,6 +25,7 @@ export const CONFIG = {
     PORT: parseInt(process.env.PORT || "3000") || 3000, // Max. number of concurrent requests to Telegram API is 5, but we chose 3 for safe
     CHUNK_SIZE: parseInt(process.env.RATE_LIMIT || "25") || 25, //Max. limit of messages per second is 30 but we chose 25 to be stay at safe zone
     MIN_TIME: parseInt(process.env.MIN_TIME || "200") || 200, // Min time between messages in ms (approx. 6-7 messages per second)
+    PAGE_SIZE: parseInt(process.env.PAGE_SIZE || "500") || 500,
   },
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
 };

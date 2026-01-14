@@ -4,7 +4,8 @@ import { IMessenger } from "../../infrastructure/telegram/IMessenger";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
 import { Logger } from "../../infrastructure/logger";
 import { CONFIG } from "../../config/config";
-import { IBroadcastRepository } from "@/repositories/broadcast/IBroadcastRepository";
+import { IBroadcastRepository } from "../../repositories/broadcast/IBroadcastRepository";
+import { Subscriber } from "../../repositories/Subscriber";
 
 export class BroadcastWorker {
   private limiter: Bottleneck;
@@ -12,6 +13,7 @@ export class BroadcastWorker {
   private isProcessing = false;
   private chunkSize = CONFIG.TELEGRAM.CHUNK_SIZE;
   private minTime = CONFIG.TELEGRAM.MIN_TIME;
+  private pageSize = CONFIG.TELEGRAM.PAGE_SIZE;
 
   constructor(
     private messenger: IMessenger,
@@ -79,7 +81,7 @@ export class BroadcastWorker {
     try {
       await this.broadcastRepo.updateStatus(nextJob.id, "processing");
 
-      await this.runBroadcast(nextJob, startTime);
+      await this.runBroadcast_v2(nextJob, startTime);
 
       await this.broadcastRepo.updateStatus(nextJob.id, "completed");
     } catch (error) {
@@ -93,20 +95,18 @@ export class BroadcastWorker {
   }
 
   private async runBroadcast(job: any, startTime: number) {
-    const subscribers = await this.subscriberRepo.findAllActive();
-
-    //TODO: FOR STRESS TESTING ONLY. Remove it before deploying
-    const stressTestData = Array.from({ length: 100 }, () => subscribers[0]);
-
-    const total = stressTestData.length;
     let sentCount = 0;
     let failedCount = 0;
     let blockedCount = 0;
 
+    const subscribers = await this.subscriberRepo.getSubscribers();
+
+    const total = subscribers.length;
+
     Logger.info(`[Broadcast] Broadcast started for ${total} users.`);
 
     for (let i = 0; i < total; i++) {
-      const subscriber = stressTestData[i];
+      const subscriber = subscribers[i];
       const currentIndex = i + 1;
 
       try {
@@ -153,7 +153,12 @@ export class BroadcastWorker {
             sentCount,
             failedCount,
             blockedCount
-          ).catch(() => {});
+          ).catch((error) => {
+            Logger.error(
+              "[BroadcastWorker] Failed to report progress to admin",
+              error
+            );
+          });
         }
       }
     }
@@ -186,6 +191,116 @@ export class BroadcastWorker {
     await this.messenger.sendMessage(
       adminId,
       `📊 Progress: ${totalProcessed} users reached`
+    );
+  }
+
+  private async runBroadcast_v2(job: any, startTime: number) {
+    let sentCount = 0;
+    let failedCount = 0;
+    let blockedCount = 0;
+    //For pagination
+    const PAGE_SIZE = this.pageSize;
+    let hasMore = true;
+    let lastId = 0;
+    let currentIndex = 0;
+
+    let totalUsers = await this.subscriberRepo.countTotalSubcribers();
+    //TODO: FOR STRESS TESTING ONLY. Remove it before deploying
+    // const subscribers = await this.subscriberRepo.getSubscribers();
+    // const stream = Array.from({ length: 100 }, () => subscribers[0]);
+    // totalUsers = stream.length;
+
+    Logger.info(`[Broadcast] Broadcast started for ${totalUsers} users.`);
+
+    while (hasMore) {
+      let batchSize = 0;
+
+      const stream = this.subscriberRepo.getSubscribersStream(
+        lastId,
+        PAGE_SIZE
+      );
+
+      for await (const row of stream) {
+        const subscriber = row as Subscriber;
+        batchSize++;
+        currentIndex++;
+        lastId = subscriber.id;
+
+        Logger.debug(`[BroadcastWorker] - Batch size: ${batchSize}`);
+
+        try {
+          await this.limiter.schedule(
+            { id: `msg-${currentIndex}` },
+            async () => {
+              await this.messenger.copyMessage(
+                subscriber.telegramId,
+                job.chat_id,
+                job.message_id
+              );
+              Logger.debug(
+                `[BroadcastWorker] - [${currentIndex} / ${totalUsers}] Sent: ${subscriber.telegramId}`
+              );
+              sentCount++;
+            }
+          );
+
+          if (
+            currentIndex % this.chunkSize === 0 &&
+            currentIndex < totalUsers
+          ) {
+            Logger.info(`[BroadcastWorker] Chunking pause at ${currentIndex}`);
+            await new Promise((res) => setTimeout(res, 2000));
+
+            if (currentIndex % 50 === 0) {
+              this.reportProgress(
+                job.admin_id,
+                sentCount,
+                failedCount,
+                blockedCount
+              ).catch((error) => {
+                Logger.error(
+                  "[BroadcastWorker] Failed to report progress to admin",
+                  error
+                );
+              });
+            }
+          }
+        } catch (error: any) {
+          if (error.response?.error_code === StatusCodes.FORBIDDEN) {
+            blockedCount++;
+            await this.subscriberRepo.setActiveStatus(
+              subscriber.telegramId,
+              false
+            );
+            Logger.debug(
+              `[Pruning] User ${subscriber.telegramId} marked as inactive.`
+            );
+          } else {
+            failedCount++;
+            Logger.error(`[Error] msg-${currentIndex}: ${error.message}`);
+          }
+        }
+      }
+
+      if (batchSize === 0 || batchSize < PAGE_SIZE) {
+        hasMore = false;
+      }
+    }
+
+    const endTime = performance.now();
+    const durationInMinutes = Math.floor((endTime - startTime) / 60000);
+    const durationInSeconds = Math.floor(
+      ((endTime - startTime) % 60000) / 1000
+    );
+    const durationMessage = `${durationInMinutes}m ${durationInSeconds}s`;
+
+    await this.messenger.sendMessage(
+      job.admin_id,
+      `✅ Broadcast Finished\nSent: ${sentCount}\nBlocked/Pruned: ${blockedCount}\nErrors: ${failedCount}\nDuration: ${durationMessage}`
+    );
+
+    Logger.info(
+      `[Broadcast] Broadcast finished for ${totalUsers} users. Duration: ${durationMessage}`
     );
   }
 }

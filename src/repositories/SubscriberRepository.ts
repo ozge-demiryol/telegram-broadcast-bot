@@ -1,7 +1,8 @@
-import { Pool } from "mysql2/promise";
+import { Pool, RowDataPacket } from "mysql2/promise";
 import { ISubscriberRepository } from "@/repositories/ISubscriberRepository";
 import { Subscriber } from "./Subscriber";
 import { Logger } from "../infrastructure/logger";
+import { Readable } from "stream";
 
 export class SubscriberRepository implements ISubscriberRepository {
   constructor(private db: Pool) {}
@@ -59,7 +60,7 @@ export class SubscriberRepository implements ISubscriberRepository {
     }
   }
 
-  async findAllActive(): Promise<Subscriber[]> {
+  async getSubscribers(): Promise<Subscriber[]> {
     try {
       const [rows] = await this.db.query(
         "SELECT * FROM subscribers WHERE isActive = true"
@@ -69,6 +70,15 @@ export class SubscriberRepository implements ISubscriberRepository {
       Logger.error("Error in findAllActive()", error);
       throw error;
     }
+  }
+
+  getSubscribersStream(lastId: number, limit: number): Readable {
+    return this.db.pool
+      .query(
+        "SELECT * FROM subscribers WHERE isActive = true AND id > ? ORDER BY id ASC LIMIT ?",
+        [lastId, limit]
+      )
+      .stream();
   }
 
   async setActiveStatus(telegramId: number, isActive: boolean): Promise<void> {
@@ -131,6 +141,20 @@ export class SubscriberRepository implements ISubscriberRepository {
       );
     } catch (error) {
       Logger.error(`Error in unsubscribe() for id ${telegramId}`, error);
+      throw error;
+    }
+  }
+
+  async countTotalSubcribers(): Promise<number> {
+    try {
+      const [rows] = await this.db.query<RowDataPacket[]>(
+        "SELECT COUNT(*) as count FROM subscribers WHERE isActive = true"
+      );
+
+      const total = rows.length > 0 ? rows[0].count : 0;
+      return Number(total);
+    } catch (error) {
+      Logger.error("Error in countTotalSubscribers()", error);
       throw error;
     }
   }
