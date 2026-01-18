@@ -41,9 +41,7 @@ export const broadcastCommand = (
         await ctx.reply(
           "⚠️ There is an ongoing broadcast right now. Your request has been queued, and will start after the current one finishes."
         );
-      } else {
-        await ctx.reply("Broadcast started");
-      }
+      } 
     } catch (error) {
       logger.error("Error occured while starting broadcast", error);
       await ctx.reply("An error occurred while processing your request.");

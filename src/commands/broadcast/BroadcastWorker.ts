@@ -22,6 +22,7 @@ export class BroadcastWorker {
     private broadcastRepo: IBroadcastRepository
   ) {
     this.rateManager = new RateLimiterManager(this.minTime);
+    this.logger.info(`[BroadcastWorker] Initialized with speed: ${this.rateManager.getSpeed()} msg/sec`);
   }
 
   public async enqueue(adminId: number, messageId: number, chatId: number) {
@@ -175,9 +176,11 @@ export class BroadcastWorker {
     let currentIndex = 0;
 
     let totalUsers = await this.subscriberRepo.countTotalSubcribers();
-
+    
+    await this.messenger.sendMessage(job.admin_id, `Broadcast started for ${totalUsers} users.`);
+    
     this.logger.info(`[Broadcast] Broadcast started for ${totalUsers} users.`);
-    this.logger.info(
+    this.logger.info( 
       `[Broadcast] Current Speed: ${this.rateManager.getSpeed()} msg/sec`
     );
 
