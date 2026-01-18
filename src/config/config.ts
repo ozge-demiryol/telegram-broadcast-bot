@@ -27,6 +27,7 @@ export const CONFIG = {
     MIN_TIME: parseInt(process.env.MIN_TIME || "200") || 200, // Min time between messages in ms (approx. 6-7 messages per second)
     PAGE_SIZE: parseInt(process.env.PAGE_SIZE || "500") || 500,
   },
+  DRY_RUN: process.env.DRY_RUN === "true",
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
 };
 
