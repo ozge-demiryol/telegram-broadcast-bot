@@ -176,4 +176,33 @@ export class SubscriberRepository implements ISubscriberRepository {
       throw error;
     }
   }
+
+  async getSubscriberStats(): Promise<{
+    active: number;
+    inactive: number;
+    total: number;
+  }> {
+    try {
+      const [rows] = await this.db.query<RowDataPacket[]>(
+        `SELECT 
+           COUNT(*) as total,
+           SUM(CASE WHEN isActive = true THEN 1 ELSE 0 END) as active,
+           SUM(CASE WHEN isActive = false THEN 1 ELSE 0 END) as inactive
+         FROM subscribers`
+      );
+
+      if (rows.length > 0) {
+        return {
+          active: Number(rows[0].active || 0),
+          inactive: Number(rows[0].inactive || 0),
+          total: Number(rows[0].total || 0),
+        };
+      }
+
+      return { active: 0, inactive: 0, total: 0 };
+    } catch (error) {
+      this.logger.error("Error in getSubscriberCounts()", error);
+      throw error;
+    }
+  }
 }

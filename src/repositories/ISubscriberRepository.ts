@@ -16,4 +16,5 @@ export interface ISubscriberRepository {
   ): Promise<void>;
   unsubscribe(telegramId: number): Promise<void>;
   countTotalSubcribers(): Promise<number>;
+  getSubscriberStats(): Promise<{ active: number; inactive: number; total: number }>;
 }

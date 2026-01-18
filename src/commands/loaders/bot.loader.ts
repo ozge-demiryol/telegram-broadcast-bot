@@ -3,6 +3,8 @@ import { subscribeCommand } from "../subscribe/subscribe";
 import { broadcastCommand } from "../broadcast/broadcast";
 import { helpCommand } from "../help/help";
 import { startCommand } from "../start/start";
+import { speedCommand } from "../speed/speed";
+import { statsCommand } from "../stats/stats";
 import { GetLogger } from "../../infrastructure/logger";
 import { SubscriberRepository } from "../../repositories/SubscriberRepository";
 import { unsubscribeCommand } from "../unsubscribe/unsubscribe";
@@ -36,6 +38,8 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
     dashboardCommand(bot, subscriberRepository);
     grantCommand(bot, subscriberRepository);
     revokeCommand(bot, subscriberRepository);
+    speedCommand(bot, broadcastWorker, subscriberRepository);
+    statsCommand(bot, broadcastWorker, subscriberRepository);
     broadcastCommand(
       bot,
       subscriberRepository,

@@ -17,6 +17,8 @@ This bot is built for broadcasting to subscribers without hitting the Telegram's
 - **Broadcast Messaging:** Admins can send an announcement to all subscribers simply by sending a message directly to the bot.
 - **Admin Dashboard:** Access the private `/dashboard` to view bot statistics and management tools.
 - **Admin Management:** Admins have the authority to grant or revoke administrative privileges for other users via `/grant` or `/revoke` command.
+- **Speed Control:** Admins can adjust the message sending speed (messages per second) to optimize delivery and avoid rate limits. Speed limit can be adjusted with `/speed <number>` command (e.g. `/speed 5`). This value can be 30 at most. And the current message sending speed can be seen with `/speed` command.
+- **System Stats:** Admins can view current system statistics, including active/inactive subscribers and current message sending speed.
 
 ## Message Queue Management System
 

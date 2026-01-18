@@ -1,4 +1,3 @@
-import Bottleneck from "bottleneck";
 import StatusCodes from "http-status-codes";
 import { IMessenger } from "../../infrastructure/telegram/IMessenger";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
@@ -6,9 +5,10 @@ import { GetLogger } from "../../infrastructure/logger";
 import { CONFIG } from "../../config/config";
 import { IBroadcastRepository } from "../../repositories/broadcast/IBroadcastRepository";
 import { Subscriber } from "../../repositories/Subscriber";
+import { RateLimiterManager } from "../../infrastructure/rate-limiter/RateLimiterManager";
 
 export class BroadcastWorker {
-  private limiter: Bottleneck;
+  private rateManager: RateLimiterManager;
   private queue: any[] = [];
   private isProcessing = false;
   private chunkSize = CONFIG.TELEGRAM.CHUNK_SIZE;
@@ -21,42 +21,7 @@ export class BroadcastWorker {
     private subscriberRepo: ISubscriberRepository,
     private broadcastRepo: IBroadcastRepository
   ) {
-    this.limiter = new Bottleneck({
-      minTime: this.minTime,
-      maxConcurrent: 1,
-    });
-
-    this.setupErrorHandlers();
-  }
-
-  private setupErrorHandlers() {
-    this.limiter.on("failed", async (error, jobInfo) => {
-      const id = jobInfo.options.id;
-
-      // 1. Handle 429 Too Many Requests
-      if (error.response?.error_code === StatusCodes.TOO_MANY_REQUESTS) {
-        const retryAfter = error.response.parameters?.retry_after || 60;
-        const waitTime = retryAfter * 1000 + 5000; // Extra generous buffer
-        this.logger.warn(
-          `[Spam Guard] Rate limit at ${id}. Cooling down for ${waitTime} ms...`
-        );
-        return waitTime;
-      }
-
-      // 2. Handle Timeouts & Network Flaps
-      if (
-        error.name === "TimeoutError" ||
-        error.code === "ETIMEDOUT" ||
-        error.code === "ECONNREFUSED"
-      ) {
-        this.logger.error(
-          `[Network] Timeout at ${id}. Waiting 7s before retry.`
-        );
-        return 7000;
-      }
-
-      return null;
-    });
+    this.rateManager = new RateLimiterManager(this.minTime);
   }
 
   public async enqueue(adminId: number, messageId: number, chatId: number) {
@@ -111,13 +76,16 @@ export class BroadcastWorker {
     const total = subscribers.length;
 
     this.logger.info(`[Broadcast] Broadcast started for ${total} users.`);
+    this.logger.info(
+      `[Broadcast] Current Speed: ${this.rateManager.getSpeed()} msg/sec`
+    );
 
     for (let i = 0; i < total; i++) {
       const subscriber = subscribers[i];
       const currentIndex = i + 1;
 
       try {
-        await this.limiter.schedule({ id: `msg-${currentIndex}` }, async () => {
+        await this.rateManager.getLimiter().schedule({ id: `msg-${currentIndex}` }, async () => {
           await this.messenger.copyMessage(
             subscriber.telegramId,
             job.chat_id,
@@ -209,6 +177,9 @@ export class BroadcastWorker {
     let totalUsers = await this.subscriberRepo.countTotalSubcribers();
 
     this.logger.info(`[Broadcast] Broadcast started for ${totalUsers} users.`);
+    this.logger.info(
+      `[Broadcast] Current Speed: ${this.rateManager.getSpeed()} msg/sec`
+    );
 
     while (hasMore) {
       let batchSize = 0;
@@ -227,7 +198,7 @@ export class BroadcastWorker {
         this.logger.debug(`Batch size: ${batchSize}`);
 
         try {
-          await this.limiter.schedule(
+          await this.rateManager.getLimiter().schedule(
             { id: `msg-${currentIndex}` },
             async () => {
               await this.messenger.copyMessage(
@@ -300,5 +271,13 @@ export class BroadcastWorker {
     this.logger.info(
       `[Broadcast] Broadcast finished for ${totalUsers} users. Duration: ${durationMessage}`
     );
+  }
+
+  public setSpeed(speed: number) {
+      return this.rateManager.setSpeed(speed);
+  }
+
+  public getSpeed() {
+      return this.rateManager.getSpeed();
   }
 }
