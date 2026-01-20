@@ -17,7 +17,6 @@ export const dashboardCommand = (
 Available commands:
 • /grant <username> - Grant admin privileges
 • /revoke <username> - Revoke admin privileges
-• /broadcast - Send message to all subscribers
 • /speed - Show current message sending speed
 • /speed <number> - Set message sending speed (messages per second)
 • /stats - View bot statistics

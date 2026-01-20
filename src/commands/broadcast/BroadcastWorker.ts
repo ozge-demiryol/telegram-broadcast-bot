@@ -54,7 +54,7 @@ export class BroadcastWorker {
     try {
       await this.broadcastRepo.updateStatus(nextJob.id, "processing");
 
-      await this.runBroadcast_v2(nextJob, startTime);
+      await this.runBroadcast(nextJob, startTime);
 
       await this.broadcastRepo.updateStatus(nextJob.id, "completed");
     } catch (error) {
@@ -66,91 +66,6 @@ export class BroadcastWorker {
       await this.processQueue();
     }
   }
-
-  private async runBroadcast(job: any, startTime: number) {
-    let sentCount = 0;
-    let failedCount = 0;
-    let blockedCount = 0;
-
-    const subscribers = await this.subscriberRepo.getSubscribers();
-
-    const total = subscribers.length;
-
-    this.logger.info(`[Broadcast] Broadcast started for ${total} users.`);
-    this.logger.info(
-      `[Broadcast] Current Speed: ${this.rateManager.getSpeed()} msg/sec`
-    );
-
-    for (let i = 0; i < total; i++) {
-      const subscriber = subscribers[i];
-      const currentIndex = i + 1;
-
-      try {
-        await this.rateManager.getLimiter().schedule({ id: `msg-${currentIndex}` }, async () => {
-          await this.messenger.copyMessage(
-            subscriber.telegramId,
-            job.chat_id,
-            job.message_id
-          );
-          this.logger.debug(
-            `[${currentIndex} / ${total}] Sending to: ${subscriber.telegramId} from: ${job.chat_id} msgId: ${job.message_id}`
-          );
-          sentCount++;
-        });
-      } catch (error: any) {
-        // SPAM PROTECTION: If user blocked the bot (403), remove them from DB immediately
-        if (error.response?.error_code === StatusCodes.FORBIDDEN) {
-          blockedCount++;
-          await this.subscriberRepo.setActiveStatus(
-            subscriber.telegramId,
-            false
-          );
-          this.logger.debug(
-            `[Pruning] User ${subscriber.telegramId} marked as inactive (Blocked bot).`
-          );
-        } else {
-          failedCount++;
-          this.logger.error(`[Error] msg-${currentIndex}: ${error.message}`);
-        }
-      }
-
-      // OPTIMIZED CHUNKING: 25 msg / 2s pause
-      if (currentIndex % this.chunkSize === 0 && currentIndex < total) {
-        this.logger.info(`Chunking pause at ${currentIndex} / ${total}`);
-
-        await new Promise((res) => setTimeout(res, 2000));
-
-        // ADAPTIVE REPORTING: Only notify admin every 500 messages to prevent 429 on admin chat
-        if (currentIndex % 500 === 0) {
-          this.reportProgress(
-            job.admin_id,
-            sentCount,
-            failedCount,
-            blockedCount
-          ).catch((error) => {
-            this.logger.error("Failed to report progress to admin", error);
-          });
-        }
-      }
-    }
-
-    const endTime = performance.now();
-    const durationInMinutes = Math.floor((endTime - startTime) / 60000);
-    const durationInSeconds = Math.floor(
-      ((endTime - startTime) % 60000) / 1000
-    );
-    const durationMessage = `${durationInMinutes}m ${durationInSeconds}s`;
-
-    await this.messenger.sendMessage(
-      job.admin_id,
-      `✅ Broadcast Finished${CONFIG.DRY_RUN ? " (DRY RUN)" : ""}\nSent: ${sentCount}\nBlocked/Pruned: ${blockedCount}\nErrors: ${failedCount}\nDuration: ${durationMessage}`
-    );
-
-    this.logger.info(
-      `[Broadcast] Broadcast finished for ${total} users. Duration: ${durationMessage}`
-    );
-  }
-
   private async reportProgress(
     adminId: number,
     sent: number,
@@ -165,7 +80,7 @@ export class BroadcastWorker {
     );
   }
 
-  private async runBroadcast_v2(job: any, startTime: number) {
+  private async runBroadcast(job: any, startTime: number) {
     let sentCount = 0;
     let failedCount = 0;
     let blockedCount = 0;
