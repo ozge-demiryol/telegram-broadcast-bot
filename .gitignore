@@ -5,3 +5,5 @@ dist/
 .qodo/
 .vscode/
 .DS_Store
+deploy.sh
+.htaccess

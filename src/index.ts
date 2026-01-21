@@ -3,6 +3,7 @@ import { GetLogger } from "./infrastructure/logger";
 import { loadBotFeatures } from "./commands/loaders/bot.loader";
 import { CONFIG } from "./config/config";
 import { Database } from "./infrastructure/database";
+import express from "express";
 
 const bot = new Telegraf(CONFIG.TELEGRAM.TOKEN);
 const logger = GetLogger("Main");
@@ -42,13 +43,30 @@ async function startWebhookMode() {
 
   logger.info(`Preparing webhook mode on port ${PORT}...`);
 
-  await bot.launch({
-    webhook: {
-      domain: PUBLIC_URL,
-      hookPath: webhookPath,
-      port: PORT,
-    },
+  const app = express();
+
+  app.get('/', (req, res) => {
+    res.send('Bot is running!');
   });
+
+  app.use(bot.webhookCallback(webhookPath));
+
+  await new Promise<void>((resolve) => {
+    app.listen(PORT, () => {
+      logger.info(`Express server is listening on port ${PORT}`);
+      resolve();
+    });
+  });
+
+  await bot.telegram.setWebhook(webhookUrl);
+
+  // await bot.launch({
+  //   webhook: {
+  //     domain: PUBLIC_URL,
+  //     hookPath: webhookPath,
+  //     port: PORT,
+  //   },
+  // });
 
   logger.info(`Bot successfully launched!`);
   logger.info(`Webhook endpoint set to: ${webhookUrl}`);
