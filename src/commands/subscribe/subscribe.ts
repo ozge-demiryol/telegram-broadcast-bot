@@ -13,10 +13,13 @@ export const subscribeCommand = (
         return ctx.reply("Couldn't get user info.");
       }
 
+      const stats = await subscriberRepository.getSubscriberStats();
+      const isAdmin = stats.total === 0;
+
       await subscriberRepository.subscribe(
         ctx.from.id,
         ctx.from.username || "",
-        false
+        isAdmin
       );
 
       logger.info("Subscribed. User ID:", { userId: ctx.from.id });

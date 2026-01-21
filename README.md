@@ -20,6 +20,18 @@ This bot is built for broadcasting to subscribers without hitting the Telegram's
 - **Speed Control:** Admins can adjust the message sending speed (messages per second) to optimize delivery and avoid rate limits. Speed limit can be adjusted with `/speed <number>` command (e.g. `/speed 5`). This value can be 30 at most. And the current message sending speed can be seen with `/speed` command.
 - **System Stats:** Admins can view current system statistics, including active/inactive subscribers and current message sending speed.
 
+### Command List
+
+- `/start`
+- `/help`
+- `/subscribe`
+- `/unsubscribe`
+- `/dashboard`
+- `/grant`
+- `/revoke`
+- `/speed`
+- `/speed <number>`
+
 ## Message Queue Management System
 
 To ensure reliable delivery and stay within Telegram's strict limits, the bot uses a smart message queue management system. This prevents the bot from being flagged as "spammy" and ensures your broadcasts reach as many active users as possible.
@@ -65,7 +77,7 @@ Copy the template variables to create your local environment file:
 cp .env.example .env
 ```
 
-### 4. Telegram Token: Paste the token provided by @BotFather.
+### 4. Telegram Token: Paste the token provided by @BotFather
 
 ### 5. Expose Local Server (ngrok)
 
