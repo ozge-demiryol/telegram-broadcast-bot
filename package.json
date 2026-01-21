@@ -6,7 +6,7 @@
   "author": "",
   "type": "commonjs",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=16.0.0"
   },
   "main": "dist/index.js",
   "scripts": {
@@ -18,9 +18,9 @@
     "test": "jest"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
+    "@types/express": "^4.17.21",
     "@types/jest": "^29.5.0",
-    "@types/node": "^18.19.74",
+    "@types/node": "^16.18.126",
     "jest": "^29.5.0",
     "prettier": "^3.7.4",
     "typescript": "^5.9.3"
@@ -28,7 +28,7 @@
   "dependencies": {
     "bottleneck": "^2.19.5",
     "dotenv": "^17.2.3",
-    "express": "^5.2.1",
+    "express": "^4.21.2",
     "http-status-codes": "^2.3.0",
     "mysql2": "^3.16.0",
     "telegraf": "^4.16.3",

@@ -1,0 +1,32 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Base directory for the bot
+    RewriteBase /bots/azbot/
+
+    # ----------------------------------------------------------------------
+    # 1. FORCE HTTPS
+    # ----------------------------------------------------------------------
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # ----------------------------------------------------------------------
+    # 2. SECURITY LOCKDOWN
+    # ----------------------------------------------------------------------
+    <FilesMatch "^\.env|package\.json|package-lock\.json|tsconfig\.json|deploy\.sh">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+    
+    RewriteRule ^(node_modules|src|dist|infrastructure|config) - [F,L]
+
+    # ----------------------------------------------------------------------
+    # 3. REVERSE PROXY (Node.js App)
+    # ----------------------------------------------------------------------
+    
+    # Proxy the specific webhook path
+    RewriteRule ^api/webhook/(.*)$ http://127.0.0.1:3000/api/webhook/$1 [P,L]
+
+    # Proxy the root path (for your "Bot is running!" message)
+    RewriteRule ^$ http://127.0.0.1:3000/ [P,L]
+
+</IfModule>
