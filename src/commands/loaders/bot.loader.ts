@@ -15,6 +15,7 @@ import { revokeCommand } from "../dashboard/revoke";
 import { BroadcastWorker } from "../broadcast/BroadcastWorker";
 import { TelegramMessenger } from "../../infrastructure/telegram/TelegramMessenger";
 import { BroadcastRepository } from "../../repositories/broadcast/BroadcastRepository";
+import { SettingsRepository } from "../../repositories/settings/SettingsRepository";
 
 export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
   const logger = GetLogger("BotFeatures");
@@ -23,11 +24,13 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
 
     const subscriberRepository = new SubscriberRepository(db);
     const broadcastRepository = new BroadcastRepository(db);
+    const settingsRepository = new SettingsRepository(db);
     const messenger = new TelegramMessenger(bot);
     const broadcastWorker = new BroadcastWorker(
       messenger,
       subscriberRepository,
-      broadcastRepository
+      broadcastRepository,
+      settingsRepository
     );
 
     //Feature setup

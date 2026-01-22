@@ -1,22 +1,24 @@
 import Bottleneck from "bottleneck";
 import { GetLogger } from "../../infrastructure/logger";
 import { StatusCodes } from "http-status-codes";
+import { ISettingsRepository } from "../../repositories/settings/ISettingsRepository";
+import { BROADCAST_SPEED } from "../../config/constants";
 
 export class RateLimiterManager {
   private limiter: Bottleneck;
   private logger = GetLogger("RateLimiterManager");
-  
-  private readonly MAX_MSG_PER_SECOND = 30; // Telegram's max limit
-  private readonly MIN_MSG_PER_SECOND = 0.5; // 1 message per 2 seconds
+
+  private readonly MAX_MSG_PER_SECOND = BROADCAST_SPEED.MAX;
+  private readonly MIN_MSG_PER_SECOND = BROADCAST_SPEED.MIN;
   private currentMinTime: number;
 
-  constructor(defaultMinTime: number) {
-    this.currentMinTime = defaultMinTime;
+  constructor(private settingsRepo: ISettingsRepository) {
+    this.currentMinTime = Math.floor(1000 / BROADCAST_SPEED.DEFAULT);
     this.limiter = new Bottleneck({
-      minTime: defaultMinTime,
+      minTime: this.currentMinTime,
       maxConcurrent: 1,
     });
-    
+
     this.setupErrorHandlers();
   }
 
@@ -28,12 +30,12 @@ export class RateLimiterManager {
   /**
    * Returns current speed in "Messages Per Second".
    */
-  public getSpeed(): number {
-    // Return the speed calculated from the stored minTime
-    return parseFloat((1000 / this.currentMinTime).toFixed(1));
+  public async getSpeed(): Promise<number> {
+    const limit = await this.settingsRepo.getBroadcastLimit();
+    return limit;
   }
 
-  public setSpeed(messagesPerSecond: number): { success: boolean; message: string } {
+  public async setSpeed(messagesPerSecond: number): Promise<{ success: boolean; message: string }> {
     if (messagesPerSecond > this.MAX_MSG_PER_SECOND) {
       return {
         success: false,
@@ -54,6 +56,8 @@ export class RateLimiterManager {
     this.limiter.updateSettings({
       minTime: newMinTime,
     });
+
+    await this.settingsRepo.setBroadcastLimit(messagesPerSecond);
 
     this.logger.info(
       `[Rate Update] Speed updated: ${messagesPerSecond} msg/sec (Delay: ${newMinTime}ms)`

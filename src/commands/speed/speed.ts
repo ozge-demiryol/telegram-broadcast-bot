@@ -18,7 +18,7 @@ export const speedCommand = (
       const parts = ctx.message.text.trim().split(/\s+/);
 
       if (parts.length === 1) {
-        const currentSpeed = broadcastWorker.getSpeed();
+        const currentSpeed = await broadcastWorker.getSpeed();
         await ctx.reply(
           `📊 Current sending speed: **${currentSpeed} messages/second**\n\nTo change speed, use: \`/speed <number>\``,
           { parse_mode: "Markdown" }
@@ -33,7 +33,7 @@ export const speedCommand = (
         return;
       }
 
-      const result = broadcastWorker.setSpeed(requestedSpeed);
+      const result = await broadcastWorker.setSpeed(requestedSpeed);
 
       await ctx.reply(result.message, { parse_mode: "Markdown" });
     } catch (error) {

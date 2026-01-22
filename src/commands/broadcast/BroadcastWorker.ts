@@ -4,6 +4,7 @@ import { ISubscriberRepository } from "../../repositories/ISubscriberRepository"
 import { GetLogger } from "../../infrastructure/logger";
 import { CONFIG } from "../../config/config";
 import { IBroadcastRepository } from "../../repositories/broadcast/IBroadcastRepository";
+import { ISettingsRepository } from "../../repositories/settings/ISettingsRepository";
 import { Subscriber } from "../../repositories/Subscriber";
 import { RateLimiterManager } from "../../infrastructure/rate-limiter/RateLimiterManager";
 
@@ -12,17 +13,23 @@ export class BroadcastWorker {
   private queue: any[] = [];
   private isProcessing = false;
   private chunkSize = CONFIG.TELEGRAM.CHUNK_SIZE;
-  private minTime = CONFIG.TELEGRAM.MIN_TIME;
   private pageSize = CONFIG.TELEGRAM.PAGE_SIZE;
   private logger = GetLogger("BroadcastWorker");
 
   constructor(
     private messenger: IMessenger,
     private subscriberRepo: ISubscriberRepository,
-    private broadcastRepo: IBroadcastRepository
+    private broadcastRepo: IBroadcastRepository,
+    private settingsRepo: ISettingsRepository
   ) {
-    this.rateManager = new RateLimiterManager(this.minTime);
-    this.logger.info(`[BroadcastWorker] Initialized with speed: ${this.rateManager.getSpeed()} msg/sec`);
+    this.rateManager = new RateLimiterManager(this.settingsRepo);
+    this.initSpeed();
+  }
+
+  private async initSpeed() {
+    const storedSpeed = await this.settingsRepo.getBroadcastLimit();
+    await this.rateManager.setSpeed(storedSpeed);
+    this.logger.info(`Initialized with speed: ${await this.rateManager.getSpeed()} msg/sec`);
   }
 
   public async enqueue(adminId: number, messageId: number, chatId: number) {
@@ -91,12 +98,12 @@ export class BroadcastWorker {
     let currentIndex = 0;
 
     let totalUsers = await this.subscriberRepo.countTotalSubcribers();
-    
+
     await this.messenger.sendMessage(job.admin_id, `Broadcast started for ${totalUsers} users.`);
-    
+
     this.logger.info(`[Broadcast] Broadcast started for ${totalUsers} users.`);
-    this.logger.info( 
-      `[Broadcast] Current Speed: ${this.rateManager.getSpeed()} msg/sec`
+    this.logger.info(
+      `[Broadcast] Current Speed: ${await this.rateManager.getSpeed()} msg/sec`
     );
 
     while (hasMore) {
@@ -191,11 +198,17 @@ export class BroadcastWorker {
     );
   }
 
-  public setSpeed(speed: number) {
-      return this.rateManager.setSpeed(speed);
+  public async setSpeed(speed: number) {
+    if (this.isProcessing) {
+      return {
+        success: false,
+        message: "⚠️ Cannot change speed while a broadcast is in progress. Try again after the broadcast is completed.",
+      };
+    }
+    return await this.rateManager.setSpeed(speed);
   }
 
-  public getSpeed() {
-      return this.rateManager.getSpeed();
+  public async getSpeed() {
+    return await this.rateManager.getSpeed();
   }
 }
