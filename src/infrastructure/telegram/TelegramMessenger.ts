@@ -5,7 +5,7 @@ import { GetLogger } from "../../infrastructure/logger";
 
 export class TelegramMessenger implements IMessenger {
   private logger = GetLogger("TelegramMessenger");
-  constructor(private bot: Telegraf) {}
+  constructor(private bot: Telegraf) { }
 
   async copyMessage(toChatId: number, fromChatId: number, messageId: number) {
     if (CONFIG.DRY_RUN) {
@@ -31,7 +31,7 @@ export class TelegramMessenger implements IMessenger {
     await this.bot.telegram.forwardMessage(toChatId, fromChatId, messageId);
   }
 
-  async sendMessage(toChatId: number, text: string) {
-    await this.bot.telegram.sendMessage(toChatId, text);
+  async sendMessage(toChatId: number, text: string, extra?: any) {
+    await this.bot.telegram.sendMessage(toChatId, text, extra);
   }
 }

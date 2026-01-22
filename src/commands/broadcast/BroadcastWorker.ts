@@ -1,4 +1,5 @@
 import StatusCodes from "http-status-codes";
+import { Markup } from "telegraf";
 import { IMessenger } from "../../infrastructure/telegram/IMessenger";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
 import { GetLogger } from "../../infrastructure/logger";
@@ -12,6 +13,7 @@ export class BroadcastWorker {
   private rateManager: RateLimiterManager;
   private queue: any[] = [];
   private isProcessing = false;
+  private shouldStop = false;
   private chunkSize = CONFIG.TELEGRAM.CHUNK_SIZE;
   private pageSize = CONFIG.TELEGRAM.PAGE_SIZE;
   private logger = GetLogger("BroadcastWorker");
@@ -30,6 +32,10 @@ export class BroadcastWorker {
     const storedSpeed = await this.settingsRepo.getBroadcastLimit();
     await this.rateManager.setSpeed(storedSpeed);
     this.logger.info(`Initialized with speed: ${await this.rateManager.getSpeed()} msg/sec`);
+  }
+
+  public stopBroadcast() {
+    this.shouldStop = true;
   }
 
   public async enqueue(adminId: number, messageId: number, chatId: number) {
@@ -63,7 +69,9 @@ export class BroadcastWorker {
 
       await this.runBroadcast(nextJob, startTime);
 
-      await this.broadcastRepo.updateStatus(nextJob.id, "completed");
+      if (!this.shouldStop) {
+        await this.broadcastRepo.updateStatus(nextJob.id, "completed");
+      }
     } catch (error) {
       this.logger.error(`Job ${nextJob.id} failed`, error);
     } finally {
@@ -83,7 +91,10 @@ export class BroadcastWorker {
     const totalProcessed = sent + failed + blocked;
     await this.messenger.sendMessage(
       adminId,
-      `📊 Progress: ${totalProcessed} users reached`
+      `📊 Progress: ${totalProcessed} users reached`,
+      Markup.inlineKeyboard([
+        Markup.button.callback("🛑 Stop Broadcast", "stop_broadcast"),
+      ])
     );
   }
 
@@ -99,7 +110,15 @@ export class BroadcastWorker {
 
     let totalUsers = await this.subscriberRepo.countTotalSubcribers();
 
-    await this.messenger.sendMessage(job.admin_id, `Broadcast started for ${totalUsers} users.`);
+    this.shouldStop = false;
+
+    await this.messenger.sendMessage(
+      job.admin_id,
+      `Broadcast started for ${totalUsers} users.`,
+      Markup.inlineKeyboard([
+        Markup.button.callback("🛑 Stop Broadcast", "stop_broadcast"),
+      ])
+    );
 
     this.logger.info(`[Broadcast] Broadcast started for ${totalUsers} users.`);
     this.logger.info(
@@ -115,6 +134,17 @@ export class BroadcastWorker {
       );
 
       for await (const row of stream) {
+        if (this.shouldStop) {
+          this.logger.info("Broadcast stopped manually by admin.");
+          await this.broadcastRepo.updateStatus(job.id, "cancelled");
+          await this.messenger.sendMessage(
+            job.admin_id,
+            "🛑 Broadcast has been stopped by admin."
+          );
+          hasMore = false;
+          break;
+        }
+
         const subscriber = row as Subscriber;
         batchSize++;
         currentIndex++;

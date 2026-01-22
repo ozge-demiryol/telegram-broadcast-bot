@@ -4,7 +4,7 @@ import { IBroadcastRepository, BroadcastJob } from "./IBroadcastRepository";
 export class BroadcastRepository implements IBroadcastRepository {
   private logger = GetLogger("BroadcastRepository");
 
-  constructor(private db: any) {}
+  constructor(private db: any) { }
 
   async getOngoingBroadcasts(): Promise<BroadcastJob[]> {
     try {
