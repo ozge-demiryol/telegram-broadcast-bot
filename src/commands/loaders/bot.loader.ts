@@ -16,6 +16,7 @@ import { BroadcastWorker } from "../broadcast/BroadcastWorker";
 import { TelegramMessenger } from "../../infrastructure/telegram/TelegramMessenger";
 import { BroadcastRepository } from "../../repositories/broadcast/BroadcastRepository";
 import { SettingsRepository } from "../../repositories/settings/SettingsRepository";
+import { setWelcomeCommand } from "../setWelcome/setWelcome";
 
 export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
   const logger = GetLogger("BotFeatures");
@@ -34,7 +35,7 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
     );
 
     //Feature setup
-    startCommand(bot);
+    startCommand(bot, settingsRepository);
     subscribeCommand(bot, subscriberRepository);
     unsubscribeCommand(bot, subscriberRepository);
     helpCommand(bot);
@@ -43,6 +44,7 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
     revokeCommand(bot, subscriberRepository);
     speedCommand(bot, broadcastWorker, subscriberRepository);
     statsCommand(bot, broadcastWorker, subscriberRepository);
+    setWelcomeCommand(bot, subscriberRepository, settingsRepository);
     broadcastCommand(
       bot,
       subscriberRepository,

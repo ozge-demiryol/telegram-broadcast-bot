@@ -20,6 +20,7 @@ Available commands:
 • /speed - Show current message sending speed
 • /speed <number> - Set message sending speed (messages per second)
 • /stats - View bot statistics
+• /setWelcome - Set greeting message
 
 Use these commands to manage the bot.
     `.trim();
