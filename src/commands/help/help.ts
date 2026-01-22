@@ -1,7 +1,8 @@
-import { Telegraf } from "telegraf";
+import { Context, Telegraf } from "telegraf";
 
 export const helpCommand = (bot: Telegraf) => {
-  bot.command("help", async (ctx) => {
+
+  const sendHelpResponse = async (ctx: Context) => {
     const helpText = `
 📋 *Available Commands:*
 
@@ -12,10 +13,22 @@ export const helpCommand = (bot: Telegraf) => {
 
 How to use:
 
-1. To subscribe, simply send /subscribe.
-2. To share a text or media (photo, video, document), simply send it to the bot (admins only).
+1. To subscribe, simply press Subscribe button or send /subscribe command.
+2. To unsubscribe, simply press Unsubscribe button or send /unsubscribe command.
+3. To share a text or media (photo, video, document), simply send it to the bot (admins only).
     `.trim();
 
-    await ctx.reply(helpText, { parse_mode: "Markdown" });
-  });
+    try {
+      if (ctx.callbackQuery) {
+        await ctx.answerCbQuery();
+      }
+
+      await ctx.reply(helpText, { parse_mode: "Markdown" });
+    } catch (error) {
+      console.error("Error sending help message:", error);
+    }
+  };
+
+  bot.command("help", sendHelpResponse);
+  bot.action("help_action", sendHelpResponse);
 };
