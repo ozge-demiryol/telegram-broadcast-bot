@@ -116,3 +116,14 @@ Run for Debugging:
 ```bash
 npm start
 ```
+
+## Deploying New Features
+
+- Save the existing dist folder as backup.
+- Replace the dist folder and `package.json`.
+- `cd public_html/bots/azbot`
+- Run `npm i --production` to install new dependencies.
+- If new environment variables are added, run `nano .env` and update the environment variables.
+- Run `npx pm2 save`
+- Run `npx pm2 reload azbot` to reload the app.
+- Make sure the bot is running with `npx pm2 list`

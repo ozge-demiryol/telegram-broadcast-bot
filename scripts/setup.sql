@@ -39,6 +39,6 @@ CREATE TABLE IF NOT EXISTS bot_settings (
 );
 
 INSERT IGNORE INTO bot_settings (setting_key, setting_value) 
-VALUES ('welcome_message', 'Welcome! 👋\nPlease choose an action below:');
+VALUES ('welcome_message', 'Welcome to our bot! 👋\nPlease press to Subscribe button to join our newsletter.');
 INSERT IGNORE INTO bot_settings (setting_key, setting_value) 
 VALUES ('broadcast_speed', '5');
