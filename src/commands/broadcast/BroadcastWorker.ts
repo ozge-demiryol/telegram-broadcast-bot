@@ -38,6 +38,10 @@ export class BroadcastWorker {
     this.shouldStop = true;
   }
 
+  public isAnyBroadcastRunning() {
+    return this.isProcessing;
+  }
+
   public async enqueue(adminId: number, messageId: number, chatId: number) {
     this.queue.push({
       admin_id: adminId,

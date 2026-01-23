@@ -76,6 +76,12 @@ export const broadcastCommand = (
   // Listener for the 'Stop Broadcast' button click
   bot.action("stop_broadcast", async (ctx) => {
     try {
+      if (!broadcastWorker.isAnyBroadcastRunning()) {
+        await ctx.reply("⚠️ Broadcast already finished. You cannot stop a completed broadcast");
+        await ctx.answerCbQuery("Broadcast already finished.");
+        return;
+      }
+
       broadcastWorker.stopBroadcast();
       await ctx.reply("🛑 Stopping broadcast...");
       await ctx.answerCbQuery("Stopping...");
