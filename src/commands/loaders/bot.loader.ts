@@ -35,7 +35,7 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
     );
 
     //Feature setup
-    startCommand(bot, settingsRepository);
+    startCommand(bot, settingsRepository, subscriberRepository);
     subscribeCommand(bot, subscriberRepository);
     unsubscribeCommand(bot, subscriberRepository);
     helpCommand(bot);

@@ -2,17 +2,14 @@ import { Telegraf, Markup } from "telegraf";
 import { GetLogger } from "../../infrastructure/logger";
 
 import { ISettingsRepository } from "../../repositories/settings/ISettingsRepository";
+import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
 
-export const startCommand = (bot: Telegraf, settingsRepository: ISettingsRepository) => {
+export const startCommand = (
+  bot: Telegraf,
+  settingsRepository: ISettingsRepository,
+  subscriberRepository: ISubscriberRepository
+) => {
   const logger = GetLogger("StartCommand");
-
-  const welcomeKeyboard = Markup.inlineKeyboard([
-    [
-      Markup.button.callback("🔔 Subscribe", "subscribe_action"),
-      Markup.button.callback("🔕 Unsubscribe", "unsubscribe_action"),
-    ],
-    [Markup.button.callback("❓ Help", "help_action")],
-  ]);
 
   bot.command("start", async (ctx) => {
     try {
@@ -21,6 +18,25 @@ export const startCommand = (bot: Telegraf, settingsRepository: ISettingsReposit
       });
 
       const welcomeMessage = await settingsRepository.getWelcomeMessage();
+
+      const subscriber = ctx.from?.id
+        ? await subscriberRepository.findByTelegramId(ctx.from.id)
+        : null;
+
+      const buttons = [];
+
+      if (subscriber?.isActive) {
+        buttons.push(
+          Markup.button.callback("🔕 Unsubscribe", "unsubscribe_action")
+        );
+      } else {
+        buttons.push(Markup.button.callback("🔔 Subscribe", "subscribe_action"));
+      }
+
+      buttons.push(Markup.button.callback("❓ Help", "help_action"));
+
+      const welcomeKeyboard = Markup.inlineKeyboard([buttons]);
+
       await ctx.reply(welcomeMessage, welcomeKeyboard);
 
       logger.info("Start command response sent");
