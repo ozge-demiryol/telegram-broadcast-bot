@@ -6,7 +6,7 @@ export class Database {
   private static instance: Pool;
   private static logger = GetLogger("Database");
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): Pool {
     if (!Database.instance) {
@@ -19,6 +19,7 @@ export class Database {
           database: CONFIG.DB.DATABASE,
           connectionLimit: 10,
           enableKeepAlive: true,
+          charset: 'utf8mb4'
         });
 
         // Validate connection
@@ -56,8 +57,7 @@ export class Database {
         }
 
         throw new Error(
-          `Database initialization failed: ${
-            error instanceof Error ? error.message : "Unknown error"
+          `Database initialization failed: ${error instanceof Error ? error.message : "Unknown error"
           }`
         );
       }

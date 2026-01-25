@@ -37,7 +37,10 @@ export const startCommand = (
 
       const welcomeKeyboard = Markup.inlineKeyboard([buttons]);
 
-      await ctx.reply(welcomeMessage, welcomeKeyboard);
+      await ctx.reply(welcomeMessage, {
+        parse_mode: "Markdown",
+        ...welcomeKeyboard,
+      });
 
       logger.info("Start command response sent");
     } catch (error) {

@@ -99,10 +99,10 @@ export const setWelcomeCommand = (
             adminStates.set(userId, { step: "AWAITING_CONFIRMATION", draftMessage: text });
 
             // 3. The Preview UI
-            await ctx.reply("👁️ **Preview:**");
+            await ctx.reply("👁️ *Preview:*", { parse_mode: "Markdown" });
 
             // Send the exact preview of how it will look
-            await ctx.reply(text);
+            await ctx.reply(text, { parse_mode: "Markdown" });
 
             await ctx.reply(
                 "Does this look good?",
