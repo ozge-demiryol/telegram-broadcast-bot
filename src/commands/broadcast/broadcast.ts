@@ -69,8 +69,13 @@ export const broadcastCommand = (
 
   // Listener for the 'Cancel' button click
   bot.action("cancel_bc", async (ctx) => {
-    await ctx.editMessageText("❌ Broadcast request has been cancelled.");
-    await ctx.answerCbQuery("Cancelled.");
+    try {
+      await ctx.editMessageText("❌ Broadcast request has been cancelled.");
+      await ctx.answerCbQuery("Cancelled.");
+    } catch (error) {
+      logger.error("Error occurred while cancelling broadcast:", error);
+      await ctx.answerCbQuery("An error occurred.");
+    }
   });
 
   // Listener for the 'Stop Broadcast' button click
