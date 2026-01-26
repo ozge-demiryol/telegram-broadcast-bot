@@ -6,7 +6,7 @@ import { Readable } from "stream";
 
 export class SubscriberRepository implements ISubscriberRepository {
   private logger = GetLogger("SubscriberRepository");
-  constructor(private db: Pool) {}
+  constructor(private db: Pool) { }
 
   async subscribe(
     telegramId: number,
@@ -22,6 +22,7 @@ export class SubscriberRepository implements ISubscriberRepository {
     }
 
     if (!username || username.trim().length === 0) {
+      this.logger.error(`Attempted to subscribe ID ${telegramId} with empty name`);
       throw new Error("Username cannot be empty");
     }
 

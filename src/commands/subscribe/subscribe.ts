@@ -21,9 +21,21 @@ export const subscribeCommand = (
       const stats = await subscriberRepository.getSubscriberStats();
       const isAdmin = stats.total === 0;
 
+      const userId = ctx.from.id;
+      const username = ctx.from.username;
+      const firstName = ctx.from.first_name;
+
+      const displayName = (username || firstName || `User_${userId}`).trim();
+
+      logger.info("Subscribing user", {
+        userId: ctx.from.id,
+        username: displayName,
+        isAdmin,
+      });
+
       await subscriberRepository.subscribe(
         ctx.from.id,
-        ctx.from.username || "",
+        displayName,
         isAdmin
       );
 
