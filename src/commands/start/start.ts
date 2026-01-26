@@ -15,6 +15,7 @@ export const startCommand = (
     try {
       logger.info("Received /start command from user", {
         userId: ctx.from?.id,
+        username: ctx.from?.username,
       });
 
       const welcomeMessage = await settingsRepository.getWelcomeMessage();

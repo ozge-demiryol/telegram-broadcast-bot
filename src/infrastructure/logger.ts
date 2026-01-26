@@ -70,8 +70,19 @@ export const GetLogger = (className: string) => {
 
   return {
     info: (message: string, meta?: any) => logger.info(sanitize(message), meta),
-    error: (message: string, error?: any) =>
-      logger.error(sanitize(message), { error }),
+    error: (message: string, error?: any) => {
+      let errorMeta = error;
+      if (error instanceof Error) {
+        errorMeta = {
+          ...error,
+          message: error.message,
+          stack: error.stack,
+          code: (error as any).code,
+          sqlMessage: (error as any).sqlMessage,
+        };
+      }
+      return logger.error(sanitize(message), { error: errorMeta });
+    },
     warn: (message: string, meta?: any) => logger.warn(sanitize(message), meta),
     debug: (message: string, meta?: any) =>
       logger.debug(sanitize(message), meta),

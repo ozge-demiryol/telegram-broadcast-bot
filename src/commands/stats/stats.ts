@@ -1,12 +1,14 @@
 import { Telegraf } from "telegraf";
 import { BroadcastWorker } from "../broadcast/BroadcastWorker";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
+import { GetLogger } from "../../infrastructure/logger";
 
 export const statsCommand = (
   bot: Telegraf,
   broadcastWorker: BroadcastWorker,
   subscriberRepository: ISubscriberRepository
 ) => {
+  const logger = GetLogger("StatsCommand");
   bot.command("stats", async (ctx) => {
     try {
       const user = await subscriberRepository.findByTelegramId(ctx.from!.id);
@@ -14,7 +16,7 @@ export const statsCommand = (
         await ctx.reply("Only admins can view statistics.");
         return;
       }
-      const currentSpeed = broadcastWorker.getSpeed();
+      const currentSpeed = await broadcastWorker.getSpeed();
       const counts = await subscriberRepository.getSubscriberStats();
 
       const message = `
@@ -30,7 +32,7 @@ export const statsCommand = (
 
       await ctx.reply(message, { parse_mode: "Markdown" });
     } catch (error) {
-      console.error("Stats command error:", error);
+      logger.error("Stats command error:", error);
       await ctx.reply("An error occurred while fetching statistics.");
     }
   });
