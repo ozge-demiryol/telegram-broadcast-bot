@@ -1,0 +1,57 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Install lftp
+        run: sudo apt-get install -y lftp
+
+      - name: Upload dist/ (full, always)
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          lftp -u "$FTP_USER,$FTP_PASS" "$FTP_SERVER" -e "
+            set ssl:verify-certificate no
+            mirror -R --delete ./dist /public_html/bots/azbot/dist
+            quit
+          "
+
+      - name: Upload changed files
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git show --name-only --format="" HEAD)
+
+          for file in $CHANGED; do
+            [ -f "$file" ] || continue
+            [[ "$file" == dist/* ]] && continue
+
+            echo "Uploading $file..."
+            curl -s -T "$file" \
+              "ftp://$FTP_SERVER/public_html/bots/azbot/$file" \
+              --user "$FTP_USER:$FTP_PASS" \
+              --ftp-create-dirs
+          done

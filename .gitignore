@@ -6,4 +6,5 @@ dist/
 .vscode/
 .DS_Store
 deploy.sh
+keepalive.sh
 .agent/
