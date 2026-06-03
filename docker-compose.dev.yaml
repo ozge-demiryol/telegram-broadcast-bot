@@ -3,7 +3,6 @@ services:
     image: mysql:8.0 # TODO: Latest?
     platform: linux/amd64
     container_name: mysql
-    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: telegram_bot
