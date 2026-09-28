@@ -121,7 +121,6 @@ npm start
 
 - Save the existing dist folder as backup.
 - Replace the dist folder and `package.json`.
-- `cd public_html/bots/azbot`
 - Run `npm i --production` to install new dependencies.
 - If new environment variables are added, run `nano .env` and update the environment variables.
 - Run `npx pm2 save`
