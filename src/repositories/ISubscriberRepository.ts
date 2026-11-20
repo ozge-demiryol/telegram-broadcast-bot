@@ -4,7 +4,6 @@ import { Subscriber } from "./Subscriber";
 export interface ISubscriberRepository {
   findByTelegramId(telegramId: number): Promise<Subscriber | null>;
   findByUsername(username: string): Promise<Subscriber | null>;
-  getSubscribers(): Promise<Subscriber[]>;
   getSubscribersStream(lastId: number, limit: number): Readable;
   setActiveStatus(telegramId: number, isActive: boolean): Promise<void>;
   setAdminStatus(telegramId: number, isAdmin: boolean): Promise<void>;

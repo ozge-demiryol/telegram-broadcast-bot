@@ -17,20 +17,6 @@ export class TelegramMessenger implements IMessenger {
     await this.bot.telegram.copyMessage(toChatId, fromChatId, messageId);
   }
 
-  async forwardMessage(
-    toChatId: number,
-    fromChatId: number,
-    messageId: number
-  ) {
-    if (CONFIG.DRY_RUN) {
-      this.logger.debug(
-        `[DRY RUN] Skipping forwardMessage to ${toChatId} from ${fromChatId} (msgId: ${messageId})`
-      );
-      return;
-    }
-    await this.bot.telegram.forwardMessage(toChatId, fromChatId, messageId);
-  }
-
   async sendMessage(toChatId: number, text: string, extra?: any) {
     await this.bot.telegram.sendMessage(toChatId, text, extra);
   }
