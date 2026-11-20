@@ -69,7 +69,7 @@ async function startWebhookMode() {
   // });
 
   logger.info(`Bot successfully launched!`);
-  logger.info(`Webhook endpoint set to: ${webhookUrl}`);
+  logger.info(`Webhook endpoint set to: ${PUBLIC_URL}/api/webhook/***`);
 }
 
 async function startPollingMode() {
