@@ -3,6 +3,7 @@ import { ISubscriberRepository } from "../../repositories/ISubscriberRepository"
 import { BroadcastWorker } from "./BroadcastWorker";
 import { IBroadcastRepository } from "@/repositories/broadcast/IBroadcastRepository";
 import { GetLogger } from "../../infrastructure/logger";
+import { adminOnlyAction } from "../middleware/adminOnly";
 
 export const broadcastCommand = (
   bot: Telegraf,
@@ -35,7 +36,7 @@ export const broadcastCommand = (
     }
   });
 
-  bot.action(/^confirm_bc_(\d+)$/, async (ctx) => {
+  bot.action(/^confirm_bc_(\d+)$/, adminOnlyAction(subscriberRepository), async (ctx) => {
     try {
       const messageId = parseInt(ctx.match[1]);
       const userId = ctx.from!.id;
@@ -68,7 +69,7 @@ export const broadcastCommand = (
   });
 
   // Listener for the 'Cancel' button click
-  bot.action("cancel_bc", async (ctx) => {
+  bot.action("cancel_bc", adminOnlyAction(subscriberRepository), async (ctx) => {
     try {
       await ctx.editMessageText("❌ Broadcast request has been cancelled.");
       await ctx.answerCbQuery("Cancelled.");
@@ -79,7 +80,7 @@ export const broadcastCommand = (
   });
 
   // Listener for the 'Stop Broadcast' button click
-  bot.action("stop_broadcast", async (ctx) => {
+  bot.action("stop_broadcast", adminOnlyAction(subscriberRepository), async (ctx) => {
     try {
       if (!broadcastWorker.isAnyBroadcastRunning()) {
         await ctx.reply("⚠️ Broadcast already finished. You cannot stop a completed broadcast");

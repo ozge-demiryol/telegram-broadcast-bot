@@ -3,6 +3,7 @@ import { message } from "telegraf/filters";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
 import { ISettingsRepository } from "../../repositories/settings/ISettingsRepository";
 import { GetLogger } from "../../infrastructure/logger";
+import { adminOnlyAction } from "../middleware/adminOnly";
 
 // Define the steps in our UI flow
 type FlowStep = "IDLE" | "AWAITING_INPUT" | "AWAITING_CONFIRMATION";
@@ -140,7 +141,7 @@ export const setWelcomeCommand = (
     });
 
     // 4. Action Handler: Save
-    bot.action("btn_save_welcome", async (ctx) => {
+    bot.action("btn_save_welcome", adminOnlyAction(subscriberRepository), async (ctx) => {
         const userId = ctx.from?.id;
         if (!userId) return;
 
@@ -172,7 +173,7 @@ export const setWelcomeCommand = (
     });
 
     // 5. Action Handler: Rewrite
-    bot.action("btn_rewrite_welcome", async (ctx) => {
+    bot.action("btn_rewrite_welcome", adminOnlyAction(subscriberRepository), async (ctx) => {
         const userId = ctx.from?.id;
         if (!userId) return;
 
@@ -183,7 +184,7 @@ export const setWelcomeCommand = (
     });
 
     // 6. Action Handler: Cancel
-    bot.action("btn_cancel_welcome", async (ctx) => {
+    bot.action("btn_cancel_welcome", adminOnlyAction(subscriberRepository), async (ctx) => {
         const userId = ctx.from?.id;
         if (!userId) return;
 

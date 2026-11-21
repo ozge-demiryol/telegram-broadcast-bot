@@ -203,13 +203,33 @@ describe("/setwelcome flow", () => {
       expect(api).not.toHaveBeenCalled();
     });
 
-    // KNOWN BUG: the action handlers have no admin check, so anyone who can press the button
-    // (e.g. in a group chat) enters the flow and can publish. Remove `.failing` once fixed.
-    it.failing("a non-admin pressing btn_rewrite_welcome cannot publish a welcome message", async () => {
+    // Telegram delivers button presses from anyone who sees the keyboard (e.g. in a group chat).
+    it("a non-admin pressing btn_rewrite_welcome cannot publish a welcome message", async () => {
       const id = newUser();
       subscribers.findByTelegramId.mockResolvedValue({ isAdmin: false });
       await send(press(id, "btn_rewrite_welcome"));
       await send(text(id, "pwned welcome"));
+      await send(press(id, "btn_save_welcome"));
+      expect(settings.setWelcomeMessage).not.toHaveBeenCalled();
+    });
+
+    it.each(["btn_save_welcome", "btn_rewrite_welcome", "btn_cancel_welcome"])(
+      "a non-admin pressing %s gets an alert and nothing else happens",
+      async (data) => {
+        const id = newUser();
+        await send(press(id, data));
+        expect(calls("answerCallbackQuery")).toEqual([
+          expect.objectContaining({ text: "Only admins can use this button.", show_alert: true }),
+        ]);
+        expect(api).toHaveBeenCalledTimes(1);
+        expect(settings.setWelcomeMessage).not.toHaveBeenCalled();
+      }
+    );
+
+    it("a revoked admin's old Save button no longer publishes the draft", async () => {
+      const id = admin();
+      await startDraft(id);
+      admins.delete(id); // admin rights revoked while the confirmation keyboard is still in the chat
       await send(press(id, "btn_save_welcome"));
       expect(settings.setWelcomeMessage).not.toHaveBeenCalled();
     });
