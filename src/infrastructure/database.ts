@@ -32,9 +32,9 @@ export class Database {
             );
           })
           .catch((error) => {
+            // Only log: repositories already hold this pool, so ending it would break
+            // every later query even after MySQL is reachable again.
             this.logger.error("Database connection validation failed", error);
-            Database.instance?.end();
-            Database.instance = null as any;
           });
       } catch (error) {
         this.logger.error("Failed to create database pool", error);
