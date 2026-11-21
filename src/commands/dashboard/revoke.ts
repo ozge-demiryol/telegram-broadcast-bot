@@ -21,8 +21,7 @@ export const revokeCommand = (
       return ctx.reply("User not found.");
     }
 
-    // Compare ids, not names: `username` falls back to first_name, so it isn't unique.
-    if (targetUser.telegramId === user.telegramId) {
+    if (targetUser.username === user.username) {
       return ctx.reply("You cannot revoke your own admin privileges.");
     }
 
