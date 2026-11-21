@@ -95,14 +95,27 @@ export const setWelcomeCommand = (
                 return;
             }
 
-            // Update state with the draft
-            adminStates.set(userId, { step: "AWAITING_CONFIRMATION", draftMessage: text });
-
             // 3. The Preview UI
-            await ctx.reply("👁️ *Preview:*", { parse_mode: "Markdown" });
+            // /start sends the welcome message with parse_mode Markdown, so the preview
+            // uses it too: invalid Markdown is rejected here, not when users run /start.
+            try {
+                await ctx.reply("👁️ *Preview:*", { parse_mode: "Markdown" });
 
-            // Send the exact preview of how it will look
-            await ctx.reply(text, { parse_mode: "Markdown" });
+                // Send the exact preview of how it will look
+                await ctx.reply(text, { parse_mode: "Markdown" });
+            } catch (error: any) {
+                if (error.response?.error_code === 400) {
+                    // Stay in AWAITING_INPUT so the admin can just type a fixed message
+                    await ctx.reply(
+                        `⚠️ Telegram can't display this message: ${error.response.description}\nPlease fix it and send it again.`
+                    );
+                    return;
+                }
+                throw error;
+            }
+
+            // Update state with the draft only once the preview succeeded
+            adminStates.set(userId, { step: "AWAITING_CONFIRMATION", draftMessage: text });
 
             await ctx.reply(
                 "Does this look good?",
