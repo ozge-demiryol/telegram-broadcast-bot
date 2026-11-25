@@ -2,9 +2,7 @@ node_modules
 .env
 logs/
 dist/
-.qodo/
 .vscode/
 .DS_Store
 deploy.sh
 keepalive.sh
-.agent/
