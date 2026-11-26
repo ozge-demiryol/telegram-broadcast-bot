@@ -64,6 +64,10 @@ function fakeRepo() {
     saveProgress: jest.fn(async (id: number, progress: object) => {
       Object.assign(jobs[id - 1], progress);
     }),
+    cancel: jest.fn(async (id: number) => {
+      jobs[id - 1].status = "cancelled";
+      return true;
+    }),
     finish: jest.fn(async (id: number, status: string) => {
       const job = jobs[id - 1];
       if (job.status === "processing") job.status = status;
@@ -177,5 +181,23 @@ describe("BroadcastWorker queue", () => {
     await until(() => repo.jobs[0].status === "failed");
     expect(sentTo()).toEqual([101, 101, 101]);
     expect(texts().at(-1)).toContain("failed");
+  });
+
+  it("stops only the broadcast the button belongs to, and keeps it cancelled", async () => {
+    const { repo, worker, messenger, sentTo, texts } = setup();
+    repo.add();
+    messenger.copyMessage.mockImplementation(async (to: number) => {
+      if (to !== 103) return;
+      worker.stopBroadcast(99); // button of some older broadcast
+      expect((worker as any).shouldStop).toBe(false);
+      await repo.cancel(1);
+      worker.stopBroadcast(1);
+    });
+
+    worker.wake();
+    await until(() => texts().some((t) => t.includes("Finished")));
+    expect(sentTo()).toEqual([101, 102, 103]);
+    expect(repo.jobs[0].status).toBe("cancelled");
+    expect(messenger.sendMessage.mock.calls[0][2].reply_markup.inline_keyboard[0][0].callback_data).toBe("stop_broadcast_1");
   });
 });

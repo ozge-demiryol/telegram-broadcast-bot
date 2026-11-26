@@ -6,10 +6,11 @@ export interface IBroadcastRepository {
     adminId: number,
     messageId: number,
     chatId: number
-  ): Promise<void>;
+  ): Promise<boolean>; // false: this message already has a broadcast
   claimNext(): Promise<BroadcastJob | null>;
   requeueInterrupted(): Promise<void>;
   saveProgress(id: number, progress: BroadcastProgress): Promise<void>;
+  cancel(id: number): Promise<boolean>;
   finish(id: number, status: BroadcastJob["status"]): Promise<void>;
 }
 export { BroadcastJob };

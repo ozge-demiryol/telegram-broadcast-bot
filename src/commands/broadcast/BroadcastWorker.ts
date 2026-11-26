@@ -40,8 +40,12 @@ export class BroadcastWorker {
     this.logger.info(`Initialized with speed: ${await this.rateManager.getSpeed()} msg/sec`);
   }
 
-  public stopBroadcast() {
-    this.shouldStop = true;
+  public get runningJobId() {
+    return this.currentJobId;
+  }
+
+  public stopBroadcast(jobId: number) {
+    if (jobId === this.currentJobId) this.shouldStop = true;
   }
 
   public isAnyBroadcastRunning() {
@@ -109,7 +113,14 @@ export class BroadcastWorker {
     }
   }
 
+  private stopButton(jobId: number) {
+    return Markup.inlineKeyboard([
+      Markup.button.callback("🛑 Stop Broadcast", `stop_broadcast_${jobId}`),
+    ]);
+  }
+
   private async reportProgress(
+    jobId: number,
     adminId: number,
     sent: number,
     failed: number,
@@ -119,9 +130,7 @@ export class BroadcastWorker {
     await this.notify(
       adminId,
       `📊 Progress: ${totalProcessed} users reached`,
-      Markup.inlineKeyboard([
-        Markup.button.callback("🛑 Stop Broadcast", "stop_broadcast"),
-      ])
+      this.stopButton(jobId)
     );
   }
 
@@ -143,9 +152,7 @@ export class BroadcastWorker {
       job.last_subscriber_id > 0
         ? `▶️ Broadcast #${job.id} resumed after a restart (${sentCount} sent so far).`
         : `Broadcast started for ${totalUsers} users.`,
-      Markup.inlineKeyboard([
-        Markup.button.callback("🛑 Stop Broadcast", "stop_broadcast"),
-      ])
+      this.stopButton(job.id)
     );
 
     this.logger.info(`[Broadcast] Broadcast started for ${totalUsers} users.`);
@@ -164,7 +171,6 @@ export class BroadcastWorker {
       for await (const row of stream) {
         if (this.shouldStop) {
           this.logger.info("Broadcast stopped manually by admin.");
-          await this.broadcastRepo.finish(job.id, "cancelled");
           await this.notify(
             job.admin_id,
             "🛑 Broadcast has been stopped by admin."
@@ -228,7 +234,7 @@ export class BroadcastWorker {
           await new Promise((res) => setTimeout(res, 2000));
 
           if (currentIndex % 500 === 0) {
-            this.reportProgress(job.admin_id, sentCount, failedCount, blockedCount);
+            this.reportProgress(job.id, job.admin_id, sentCount, failedCount, blockedCount);
           }
         }
       }

@@ -22,13 +22,16 @@ export class BroadcastRepository implements IBroadcastRepository {
     adminId: number,
     messageId: number,
     chatId: number
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       await this.db.query(
         "INSERT INTO broadcasts (admin_id, message_id, chat_id, status) VALUES (?, ?, ?, 'pending')",
         [adminId, messageId, chatId]
       );
-    } catch (error) {
+      return true;
+    } catch (error: any) {
+      // unique (chat_id, message_id): a double click on Confirm
+      if (error.code === "ER_DUP_ENTRY") return false;
       this.logger.error("Error creating broadcast record:", error);
       throw new Error("Failed to create a new broadcast entry.");
     }
@@ -61,6 +64,14 @@ export class BroadcastRepository implements IBroadcastRepository {
 
   async saveProgress(id: number, progress: BroadcastProgress): Promise<void> {
     await this.db.query("UPDATE broadcasts SET ? WHERE id = ?", [progress, id]);
+  }
+
+  async cancel(id: number): Promise<boolean> {
+    const [result] = await this.db.query(
+      "UPDATE broadcasts SET status = 'cancelled' WHERE id = ? AND status IN ('pending', 'processing')",
+      [id]
+    );
+    return result.affectedRows === 1;
   }
 
   async finish(id: number, status: BroadcastJob["status"]): Promise<void> {
