@@ -23,7 +23,7 @@ describe("broadcast buttons", () => {
   let api: jest.SpyInstance;
   const subscribers = { findByTelegramId: jest.fn() };
   const broadcasts = { getOngoingBroadcasts: jest.fn(), createBroadcast: jest.fn() };
-  const worker = { enqueue: jest.fn(), stopBroadcast: jest.fn(), isAnyBroadcastRunning: jest.fn() };
+  const worker = { wake: jest.fn(), stopBroadcast: jest.fn(), isAnyBroadcastRunning: jest.fn() };
   const calls = (method: string) => api.mock.calls.filter((c) => c[0] === method).map((c) => c[1]);
 
   beforeEach(() => {
@@ -38,16 +38,16 @@ describe("broadcast buttons", () => {
   });
   afterEach(() => { api.mockRestore(); jest.restoreAllMocks(); });
 
-  it("an admin pressing Confirm creates and enqueues the broadcast", async () => {
+  it("an admin pressing Confirm creates and starts the broadcast", async () => {
     await bot.handleUpdate(press(ADMIN, "confirm_bc_5"));
     expect(broadcasts.createBroadcast).toHaveBeenCalledWith(ADMIN, 5, ADMIN);
-    expect(worker.enqueue).toHaveBeenCalledWith(ADMIN, 5, ADMIN);
+    expect(worker.wake).toHaveBeenCalled();
   });
 
   it("a non-admin pressing Confirm cannot start a broadcast", async () => {
     await bot.handleUpdate(press(STRANGER, "confirm_bc_5"));
     expect(broadcasts.createBroadcast).not.toHaveBeenCalled();
-    expect(worker.enqueue).not.toHaveBeenCalled();
+    expect(worker.wake).not.toHaveBeenCalled();
     expect(calls("editMessageText")).toHaveLength(0);
     expect(calls("answerCallbackQuery")).toEqual([
       expect.objectContaining({ text: "Only admins can use this button.", show_alert: true }),
@@ -58,7 +58,7 @@ describe("broadcast buttons", () => {
     subscribers.findByTelegramId.mockResolvedValue({ isAdmin: false });
     await bot.handleUpdate(press(ADMIN, "confirm_bc_5"));
     expect(broadcasts.createBroadcast).not.toHaveBeenCalled();
-    expect(worker.enqueue).not.toHaveBeenCalled();
+    expect(worker.wake).not.toHaveBeenCalled();
   });
 
   it("a non-admin pressing Stop cannot stop a running broadcast", async () => {

@@ -34,30 +34,31 @@ export class BroadcastRepository implements IBroadcastRepository {
     }
   }
 
-  async getNextPendingBroadcast(): Promise<BroadcastJob | null> {
-    try {
-      const [rows] = await this.db.query(
-        "SELECT * FROM broadcasts WHERE status = 'pending' ORDER BY created_at ASC LIMIT 1"
+  // Takes the oldest pending job. The status condition in the UPDATE makes sure
+  // only one caller can win it.
+  async claimNext(): Promise<BroadcastJob | null> {
+    while (true) {
+      const [pending] = await this.db.query(
+        "SELECT id FROM broadcasts WHERE status = 'pending' ORDER BY created_at, id LIMIT 1"
       );
-      return rows && rows.length > 0 ? rows[0] : null;
-    } catch (error) {
-      this.logger.error("Error fetching next pending broadcast:", error);
-      throw new Error("Failed to retrieve the next pending broadcast.");
+      if (!pending.length) return null;
+
+      const { id } = pending[0];
+      const [result] = await this.db.query(
+        "UPDATE broadcasts SET status = 'processing', attempts = attempts + 1 WHERE id = ? AND status = 'pending'",
+        [id]
+      );
+      if (result.affectedRows !== 1) continue;
+
+      const [rows] = await this.db.query("SELECT * FROM broadcasts WHERE id = ?", [id]);
+      return rows[0];
     }
   }
 
-  async updateStatus(
-    id: number,
-    status: BroadcastJob["status"]
-  ): Promise<void> {
-    try {
-      await this.db.query("UPDATE broadcasts SET status = ? WHERE id = ?", [
-        status,
-        id,
-      ]);
-    } catch (error) {
-      this.logger.error(`Error updating broadcast status for ID ${id}:`, error);
-      throw new Error(`Failed to update broadcast status to ${status}.`);
-    }
+  async finish(id: number, status: BroadcastJob["status"]): Promise<void> {
+    await this.db.query(
+      "UPDATE broadcasts SET status = ? WHERE id = ? AND status = 'processing'",
+      [status, id]
+    );
   }
 }

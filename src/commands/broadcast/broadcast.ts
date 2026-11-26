@@ -51,7 +51,7 @@ export const broadcastCommand = (
 
       // STEP 2: Add new broadcast into the queue
       await broadcastRepository.createBroadcast(userId, messageId, chatId);
-      await broadcastWorker.enqueue(userId, messageId, chatId);
+      broadcastWorker.wake();
 
       if (isOngoing) {
         await ctx.reply(

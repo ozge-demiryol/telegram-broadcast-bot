@@ -7,7 +7,7 @@ export interface IBroadcastRepository {
     messageId: number,
     chatId: number
   ): Promise<void>;
-  getNextPendingBroadcast(): Promise<BroadcastJob | null>;
-  updateStatus(id: number, status: BroadcastJob["status"]): Promise<void>;
+  claimNext(): Promise<BroadcastJob | null>;
+  finish(id: number, status: BroadcastJob["status"]): Promise<void>;
 }
 export { BroadcastJob };
