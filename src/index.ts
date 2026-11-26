@@ -22,15 +22,11 @@ async function main() {
     logger.info("Initializing application...");
 
     const db = Database.getInstance();
-    const { broadcastWorker } = loadBotFeatures(bot, db);
+    loadBotFeatures(bot, db);
 
     if (process.env.NODE_ENV === "production") {
       await startWebhookMode();
-      // Resume interrupted broadcasts only once the port is ours: a second
-      // instance fails to listen and so never touches the queue.
-      broadcastWorker.wake();
     } else {
-      broadcastWorker.wake(); // launch() only resolves when polling stops
       await startPollingMode();
     }
 

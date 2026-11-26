@@ -50,12 +50,8 @@ export const broadcastCommand = (
       const isOngoing = ongoing.length > 0;
 
       // STEP 2: Add new broadcast into the queue
-      const created = await broadcastRepository.createBroadcast(userId, messageId, chatId);
-      if (!created) {
-        await ctx.answerCbQuery("This message is already queued or was already broadcast.", { show_alert: true });
-        return;
-      }
-      broadcastWorker.wake();
+      await broadcastRepository.createBroadcast(userId, messageId, chatId);
+      await broadcastWorker.enqueue(userId, messageId, chatId);
 
       if (isOngoing) {
         await ctx.reply(
@@ -83,20 +79,16 @@ export const broadcastCommand = (
     }
   });
 
-  // Listener for the 'Stop Broadcast' button click.
-  // Buttons sent before the id was added mean "the one running now".
-  bot.action(/^stop_broadcast(?:_(\d+))?$/, adminOnlyAction(subscriberRepository), async (ctx) => {
+  // Listener for the 'Stop Broadcast' button click
+  bot.action("stop_broadcast", adminOnlyAction(subscriberRepository), async (ctx) => {
     try {
-      const jobId = ctx.match[1] ? parseInt(ctx.match[1]) : broadcastWorker.runningJobId;
-
-      // Cancel in the database first, so the job does not come back after a restart
-      if (jobId === null || !(await broadcastRepository.cancel(jobId))) {
+      if (!broadcastWorker.isAnyBroadcastRunning()) {
         await ctx.reply("⚠️ Broadcast already finished. You cannot stop a completed broadcast");
         await ctx.answerCbQuery("Broadcast already finished.");
         return;
       }
 
-      broadcastWorker.stopBroadcast(jobId);
+      broadcastWorker.stopBroadcast();
       await ctx.reply("🛑 Stopping broadcast...");
       await ctx.answerCbQuery("Stopping...");
     } catch (error) {

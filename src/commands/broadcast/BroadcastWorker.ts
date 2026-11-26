@@ -4,20 +4,15 @@ import { IMessenger } from "../../infrastructure/telegram/IMessenger";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
 import { GetLogger } from "../../infrastructure/logger";
 import { CONFIG } from "../../config/config";
-import { BroadcastJob, IBroadcastRepository } from "../../repositories/broadcast/IBroadcastRepository";
+import { IBroadcastRepository } from "../../repositories/broadcast/IBroadcastRepository";
 import { ISettingsRepository } from "../../repositories/settings/ISettingsRepository";
 import { Subscriber } from "../../repositories/Subscriber";
 import { RateLimiterManager } from "../../infrastructure/rate-limiter/RateLimiterManager";
 
 export class BroadcastWorker {
   private rateManager: RateLimiterManager;
-  private running = false;
-  private wakeAgain = false;
-  private currentJobId: number | null = null;
-  private maxAttempts = 3;
-  private maxErrorStreak = 20;
-  private retryDelayMs = 60_000;
-  private retryTimer?: NodeJS.Timeout;
+  private queue: any[] = [];
+  private isProcessing = false;
   private shouldStop = false;
   private chunkSize = CONFIG.TELEGRAM.CHUNK_SIZE;
   private pageSize = CONFIG.TELEGRAM.PAGE_SIZE;
@@ -41,123 +36,94 @@ export class BroadcastWorker {
     this.logger.info(`Initialized with speed: ${await this.rateManager.getSpeed()} msg/sec`);
   }
 
-  public get runningJobId() {
-    return this.currentJobId;
-  }
-
-  public stopBroadcast(jobId: number) {
-    if (jobId === this.currentJobId) this.shouldStop = true;
+  public stopBroadcast() {
+    this.shouldStop = true;
   }
 
   public isAnyBroadcastRunning() {
-    return this.currentJobId !== null;
+    return this.isProcessing;
   }
 
-  // Safe to call any number of times: only one loop ever runs.
-  public wake() {
-    this.wakeAgain = true;
-    if (this.running) return;
-    this.running = true; // set synchronously, before any await
-    this.run()
-      .catch((error) => {
-        // The job stays 'processing' and is requeued by the next run
-        this.logger.error("Broadcast queue stopped, retrying later", error);
-        clearTimeout(this.retryTimer);
-        this.retryTimer = setTimeout(() => this.wake(), this.retryDelayMs);
-      })
-      .finally(() => (this.running = false));
-  }
+  public async enqueue(adminId: number, messageId: number, chatId: number) {
+    this.queue.push({
+      admin_id: adminId,
+      message_id: messageId,
+      chat_id: chatId,
+    });
 
-  private async run() {
-    // Only one loop runs in one process, so a job still marked 'processing' here
-    // was interrupted (restart, crash): put it back in the queue.
-    await this.broadcastRepo.requeueInterrupted();
-
-    // wakeAgain covers a job that arrives while we are finding the queue empty
-    do {
-      this.wakeAgain = false;
-      let job;
-      while ((job = await this.broadcastRepo.claimNext())) {
-        await this.process(job);
-      }
-    } while (this.wakeAgain);
-  }
-
-  private async process(job: BroadcastJob) {
-    this.currentJobId = job.id;
-    this.shouldStop = false;
-    try {
-      // attempts goes back to 0 on progress, so this only catches a job that
-      // keeps dying at the same place (including one that crashes the process)
-      if (job.attempts > this.maxAttempts) {
-        await this.broadcastRepo.finish(job.id, "failed");
-        await this.notify(
-          job.admin_id,
-          `❌ Broadcast #${job.id} failed: no progress after ${this.maxAttempts} attempts (${job.sent_count} sent).`
-        );
-        return;
-      }
-      await this.runBroadcast(job, performance.now());
-      // no-op if the job was cancelled in the meantime
-      await this.broadcastRepo.finish(job.id, "completed");
-    } finally {
-      this.currentJobId = null;
+    if (!this.isProcessing) {
+      this.processQueue().catch((err) =>
+        this.logger.error("[Critical] Queue crash prevented", err)
+      );
     }
   }
 
-  // A failed notification to the admin must not fail the broadcast itself.
-  private async notify(adminId: number, text: string, extra?: any) {
+  private async processQueue() {
+    const nextJob = await this.broadcastRepo.getNextPendingBroadcast();
+
+    if (!nextJob) {
+      this.isProcessing = false;
+      return;
+    }
+
+    this.isProcessing = true;
+
+    const startTime = performance.now();
+
     try {
-      await this.messenger.sendMessage(adminId, text, extra);
+      await this.broadcastRepo.updateStatus(nextJob.id, "processing");
+
+      await this.runBroadcast(nextJob, startTime);
+
+      if (!this.shouldStop) {
+        await this.broadcastRepo.updateStatus(nextJob.id, "completed");
+      }
     } catch (error) {
-      this.logger.error("Failed to message the admin", error);
+      this.logger.error(`Job ${nextJob.id} failed`, error);
+    } finally {
+      if (this.queue.length > 0) {
+        this.queue.shift(); // Clean the queue
+      }
+      await this.processQueue();
     }
   }
-
-  private stopButton(jobId: number) {
-    return Markup.inlineKeyboard([
-      Markup.button.callback("🛑 Stop Broadcast", `stop_broadcast_${jobId}`),
-    ]);
-  }
-
   private async reportProgress(
-    jobId: number,
     adminId: number,
     sent: number,
     failed: number,
     blocked: number
   ) {
+    // Reporting is now async and safe
     const totalProcessed = sent + failed + blocked;
-    await this.notify(
+    await this.messenger.sendMessage(
       adminId,
       `📊 Progress: ${totalProcessed} users reached`,
-      this.stopButton(jobId)
+      Markup.inlineKeyboard([
+        Markup.button.callback("🛑 Stop Broadcast", "stop_broadcast"),
+      ])
     );
   }
 
-  private async runBroadcast(job: BroadcastJob, startTime: number) {
-    // Start from what was saved, so an interrupted job continues where it stopped
-    let sentCount = job.sent_count;
-    let failedCount = job.failed_count;
-    let blockedCount = job.blocked_count;
+  private async runBroadcast(job: any, startTime: number) {
+    let sentCount = 0;
+    let failedCount = 0;
+    let blockedCount = 0;
     //For pagination
     const PAGE_SIZE = this.pageSize;
     let hasMore = true;
-    let lastId = job.last_subscriber_id;
-    let currentIndex = sentCount + failedCount + blockedCount;
+    let lastId = 0;
+    let currentIndex = 0;
 
     let totalUsers = await this.subscriberRepo.countTotalSubcribers();
 
-    // Circuit breaker: many errors in a row mean the problem is not the subscribers
-    let errorStreak = 0;
-    let beforeStreak = { last_subscriber_id: lastId, failed_count: failedCount };
+    this.shouldStop = false;
 
-    await this.notify(
+    await this.messenger.sendMessage(
       job.admin_id,
-      job.last_subscriber_id > 0
-        ? `▶️ Broadcast #${job.id} resumed after a restart (${sentCount} sent so far).`
-        : `Broadcast started for ${totalUsers} users.`,
-      this.stopButton(job.id)
+      `Broadcast started for ${totalUsers} users.`,
+      Markup.inlineKeyboard([
+        Markup.button.callback("🛑 Stop Broadcast", "stop_broadcast"),
+      ])
     );
 
     this.logger.info(`[Broadcast] Broadcast started for ${totalUsers} users.`);
@@ -176,7 +142,8 @@ export class BroadcastWorker {
       for await (const row of stream) {
         if (this.shouldStop) {
           this.logger.info("Broadcast stopped manually by admin.");
-          await this.notify(
+          await this.broadcastRepo.updateStatus(job.id, "cancelled");
+          await this.messenger.sendMessage(
             job.admin_id,
             "🛑 Broadcast has been stopped by admin."
           );
@@ -187,12 +154,10 @@ export class BroadcastWorker {
         const subscriber = row as Subscriber;
         batchSize++;
         currentIndex++;
-        const previousId = lastId;
         lastId = subscriber.id;
 
         this.logger.debug(`Batch size: ${batchSize}`);
 
-        let reached = true; // delivered or blocked, as opposed to an error
         try {
           await this.rateManager.getLimiter().schedule(
             { id: `msg-${currentIndex}` },
@@ -208,6 +173,25 @@ export class BroadcastWorker {
               sentCount++;
             }
           );
+
+          if (
+            currentIndex % this.chunkSize === 0 &&
+            currentIndex < totalUsers
+          ) {
+            this.logger.info(`Chunking pause at ${currentIndex}`);
+            await new Promise((res) => setTimeout(res, 2000));
+
+            if (currentIndex % 500 === 0) {
+              this.reportProgress(
+                job.admin_id,
+                sentCount,
+                failedCount,
+                blockedCount
+              ).catch((error) => {
+                this.logger.error("Failed to report progress to admin", error);
+              });
+            }
+          }
         } catch (error: any) {
           if (error.response?.error_code === StatusCodes.FORBIDDEN) {
             blockedCount++;
@@ -219,43 +203,8 @@ export class BroadcastWorker {
               `[Pruning] User ${subscriber.telegramId} marked as inactive.`
             );
           } else {
-            reached = false;
-            // "chat not found" is about this subscriber only
-            if (!error.response?.description?.includes("chat not found") && errorStreak++ === 0) {
-              beforeStreak = { last_subscriber_id: previousId, failed_count: failedCount };
-            }
             failedCount++;
             this.logger.error(`[Error] msg-${currentIndex}: ${error.message}`);
-          }
-        }
-
-        // Saved after every subscriber: a crash repeats at most one message.
-        // Telegram allows 30 msg/sec at most, so these writes are cheap.
-        await this.broadcastRepo.saveProgress(job.id, {
-          last_subscriber_id: lastId,
-          sent_count: sentCount,
-          failed_count: failedCount,
-          blocked_count: blockedCount,
-          ...(reached && { attempts: 0 }),
-        });
-
-        if (reached) errorStreak = 0;
-        if (errorStreak >= this.maxErrorStreak) {
-          // Rewind so that nobody in the streak is skipped when the job is retried
-          await this.broadcastRepo.saveProgress(job.id, {
-            ...beforeStreak,
-            sent_count: sentCount,
-            blocked_count: blockedCount,
-          });
-          throw new Error(`${errorStreak} errors in a row`);
-        }
-
-        if (currentIndex % this.chunkSize === 0 && currentIndex < totalUsers) {
-          this.logger.info(`Chunking pause at ${currentIndex}`);
-          await new Promise((res) => setTimeout(res, 2000));
-
-          if (currentIndex % 500 === 0) {
-            this.reportProgress(job.id, job.admin_id, sentCount, failedCount, blockedCount);
           }
         }
       }
@@ -275,7 +224,7 @@ export class BroadcastWorker {
     );
     const durationMessage = `${durationInMinutes}m ${durationInSeconds}s`;
 
-    await this.notify(
+    await this.messenger.sendMessage(
       job.admin_id,
       `✅ Broadcast Finished${CONFIG.DRY_RUN ? " (DRY RUN)" : ""}\nSent: ${sentCount}\nBlocked/Pruned: ${blockedCount}\nErrors: ${failedCount}\nDuration: ${durationMessage}`
     );
@@ -286,7 +235,7 @@ export class BroadcastWorker {
   }
 
   public async setSpeed(speed: number) {
-    if (this.isAnyBroadcastRunning()) {
+    if (this.isProcessing) {
       return {
         success: false,
         message: "⚠️ Cannot change speed while a broadcast is in progress. Try again after the broadcast is completed.",
