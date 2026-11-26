@@ -154,4 +154,28 @@ describe("BroadcastWorker queue", () => {
     await until(() => repo.jobs[0].status === "completed");
     expect(sentTo()).toEqual(everyone);
   });
+
+  it("retries a broadcast on its own after a database error", async () => {
+    const { repo, worker, sentTo } = setup();
+    (worker as any).retryDelayMs = 20;
+    repo.add();
+    repo.saveProgress.mockRejectedValueOnce(new Error("db down"));
+
+    worker.wake();
+    await until(() => repo.jobs[0].status === "completed");
+    expect(sentTo()).toEqual([101, ...everyone]);
+    expect(repo.jobs[0].attempts).toBe(0);
+  });
+
+  it("gives up after 3 attempts without progress and tells the admin", async () => {
+    const { repo, worker, sentTo, texts } = setup();
+    (worker as any).retryDelayMs = 20;
+    repo.add();
+    repo.saveProgress.mockRejectedValue(new Error("poisoned"));
+
+    worker.wake();
+    await until(() => repo.jobs[0].status === "failed");
+    expect(sentTo()).toEqual([101, 101, 101]);
+    expect(texts().at(-1)).toContain("failed");
+  });
 });

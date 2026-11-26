@@ -16,4 +16,5 @@ export { BroadcastJob };
 export type BroadcastProgress = Pick<
   BroadcastJob,
   "last_subscriber_id" | "sent_count" | "failed_count" | "blocked_count"
->;
+> &
+  Partial<Pick<BroadcastJob, "attempts">>;

@@ -14,6 +14,9 @@ export class BroadcastWorker {
   private running = false;
   private wakeAgain = false;
   private currentJobId: number | null = null;
+  private maxAttempts = 3;
+  private retryDelayMs = 60_000;
+  private retryTimer?: NodeJS.Timeout;
   private shouldStop = false;
   private chunkSize = CONFIG.TELEGRAM.CHUNK_SIZE;
   private pageSize = CONFIG.TELEGRAM.PAGE_SIZE;
@@ -51,7 +54,12 @@ export class BroadcastWorker {
     if (this.running) return;
     this.running = true; // set synchronously, before any await
     this.run()
-      .catch((err) => this.logger.error("[Critical] Queue crash prevented", err))
+      .catch((error) => {
+        // The job stays 'processing' and is requeued by the next run
+        this.logger.error("Broadcast queue stopped, retrying later", error);
+        clearTimeout(this.retryTimer);
+        this.retryTimer = setTimeout(() => this.wake(), this.retryDelayMs);
+      })
       .finally(() => (this.running = false));
   }
 
@@ -74,11 +82,19 @@ export class BroadcastWorker {
     this.currentJobId = job.id;
     this.shouldStop = false;
     try {
+      // attempts goes back to 0 on progress, so this only catches a job that
+      // keeps dying at the same place (including one that crashes the process)
+      if (job.attempts > this.maxAttempts) {
+        await this.broadcastRepo.finish(job.id, "failed");
+        await this.notify(
+          job.admin_id,
+          `❌ Broadcast #${job.id} failed: no progress after ${this.maxAttempts} attempts (${job.sent_count} sent).`
+        );
+        return;
+      }
       await this.runBroadcast(job, performance.now());
       // no-op if the job was cancelled in the meantime
       await this.broadcastRepo.finish(job.id, "completed");
-    } catch (error) {
-      this.logger.error(`Job ${job.id} failed`, error);
     } finally {
       this.currentJobId = null;
     }
@@ -164,6 +180,7 @@ export class BroadcastWorker {
 
         this.logger.debug(`Batch size: ${batchSize}`);
 
+        let reached = true; // delivered or blocked, as opposed to an error
         try {
           await this.rateManager.getLimiter().schedule(
             { id: `msg-${currentIndex}` },
@@ -190,6 +207,7 @@ export class BroadcastWorker {
               `[Pruning] User ${subscriber.telegramId} marked as inactive.`
             );
           } else {
+            reached = false;
             failedCount++;
             this.logger.error(`[Error] msg-${currentIndex}: ${error.message}`);
           }
@@ -202,6 +220,7 @@ export class BroadcastWorker {
           sent_count: sentCount,
           failed_count: failedCount,
           blocked_count: blockedCount,
+          ...(reached && { attempts: 0 }),
         });
 
         if (currentIndex % this.chunkSize === 0 && currentIndex < totalUsers) {
