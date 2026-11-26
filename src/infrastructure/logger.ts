@@ -6,13 +6,19 @@ import "winston-daily-rotate-file";
 const { combine, timestamp, printf, errors, json, colorize, simple, label } =
   winston.format;
 
+// The bot token shows up in the webhook URL and in node-fetch error messages
+// (https://api.telegram.org/bot<TOKEN>/...), so it must never reach the logs.
+const redact = (text: string) => text.split(CONFIG.TELEGRAM.TOKEN).join("***");
+
 //[Date] [Log level] [Class name] - Message {meta}
 const customFormat = printf(({ level, message, label, timestamp, ...meta }) => {
   const metaString = Object.keys(meta).length ? JSON.stringify(meta) : "";
-  return `[${timestamp}] [${level.toUpperCase()}] [${label}] - ${message} ${metaString}`;
+  return redact(
+    `[${timestamp}] [${level.toUpperCase()}] [${label}] - ${message} ${metaString}`
+  );
 });
 
-const sanitize = (msg: string) => msg.replace(/[\r\n]/g, "_");
+const sanitize = (msg: string) => redact(msg.replace(/[\r\n]/g, "_"));
 
 export const GetLogger = (className: string) => {
   const dailyDir = path.join("logs", "%DATE%");

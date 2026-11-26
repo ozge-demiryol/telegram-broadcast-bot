@@ -65,18 +65,6 @@ export class SubscriberRepository implements ISubscriberRepository {
     }
   }
 
-  async getSubscribers(): Promise<Subscriber[]> {
-    try {
-      const [rows] = await this.db.query(
-        "SELECT * FROM subscribers WHERE isActive = true"
-      );
-      return rows as Subscriber[];
-    } catch (error) {
-      this.logger.error("Error in findAllActive()", error);
-      throw error;
-    }
-  }
-
   getSubscribersStream(lastId: number, limit: number): Readable {
     try {
       return this.db.pool

@@ -8,6 +8,15 @@ import express from "express";
 const bot = new Telegraf(CONFIG.TELEGRAM.TOKEN);
 const logger = GetLogger("Main");
 
+// Without this, Telegraf rethrows handler errors; Express 4 doesn't catch the
+// rejection, so the process dies and Telegram redelivers the same update.
+bot.catch((error, ctx) => {
+  logger.error(
+    `Unhandled error while processing update ${ctx.update.update_id}`,
+    error
+  );
+});
+
 async function main() {
   try {
     logger.info("Initializing application...");
@@ -69,7 +78,7 @@ async function startWebhookMode() {
   // });
 
   logger.info(`Bot successfully launched!`);
-  logger.info(`Webhook endpoint set to: ${webhookUrl}`);
+  logger.info(`Webhook endpoint set to: ${PUBLIC_URL}/api/webhook/***`);
 }
 
 async function startPollingMode() {

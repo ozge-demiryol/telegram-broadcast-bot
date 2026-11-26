@@ -25,7 +25,9 @@ export class BroadcastWorker {
     private settingsRepo: ISettingsRepository
   ) {
     this.rateManager = new RateLimiterManager(this.settingsRepo);
-    this.initSpeed();
+    this.initSpeed().catch((error) =>
+      this.logger.error("Failed to initialize broadcast speed", error)
+    );
   }
 
   private async initSpeed() {

@@ -3,6 +3,7 @@ import { message } from "telegraf/filters";
 import { ISubscriberRepository } from "../../repositories/ISubscriberRepository";
 import { ISettingsRepository } from "../../repositories/settings/ISettingsRepository";
 import { GetLogger } from "../../infrastructure/logger";
+import { adminOnlyAction } from "../middleware/adminOnly";
 
 // Define the steps in our UI flow
 type FlowStep = "IDLE" | "AWAITING_INPUT" | "AWAITING_CONFIRMATION";
@@ -95,14 +96,27 @@ export const setWelcomeCommand = (
                 return;
             }
 
-            // Update state with the draft
-            adminStates.set(userId, { step: "AWAITING_CONFIRMATION", draftMessage: text });
-
             // 3. The Preview UI
-            await ctx.reply("👁️ *Preview:*", { parse_mode: "Markdown" });
+            // /start sends the welcome message with parse_mode Markdown, so the preview
+            // uses it too: invalid Markdown is rejected here, not when users run /start.
+            try {
+                await ctx.reply("👁️ *Preview:*", { parse_mode: "Markdown" });
 
-            // Send the exact preview of how it will look
-            await ctx.reply(text, { parse_mode: "Markdown" });
+                // Send the exact preview of how it will look
+                await ctx.reply(text, { parse_mode: "Markdown" });
+            } catch (error: any) {
+                if (error.response?.error_code === 400) {
+                    // Stay in AWAITING_INPUT so the admin can just type a fixed message
+                    await ctx.reply(
+                        `⚠️ Telegram can't display this message: ${error.response.description}\nPlease fix it and send it again.`
+                    );
+                    return;
+                }
+                throw error;
+            }
+
+            // Update state with the draft only once the preview succeeded
+            adminStates.set(userId, { step: "AWAITING_CONFIRMATION", draftMessage: text });
 
             await ctx.reply(
                 "Does this look good?",
@@ -127,7 +141,7 @@ export const setWelcomeCommand = (
     });
 
     // 4. Action Handler: Save
-    bot.action("btn_save_welcome", async (ctx) => {
+    bot.action("btn_save_welcome", adminOnlyAction(subscriberRepository), async (ctx) => {
         const userId = ctx.from?.id;
         if (!userId) return;
 
@@ -159,7 +173,7 @@ export const setWelcomeCommand = (
     });
 
     // 5. Action Handler: Rewrite
-    bot.action("btn_rewrite_welcome", async (ctx) => {
+    bot.action("btn_rewrite_welcome", adminOnlyAction(subscriberRepository), async (ctx) => {
         const userId = ctx.from?.id;
         if (!userId) return;
 
@@ -170,7 +184,7 @@ export const setWelcomeCommand = (
     });
 
     // 6. Action Handler: Cancel
-    bot.action("btn_cancel_welcome", async (ctx) => {
+    bot.action("btn_cancel_welcome", adminOnlyAction(subscriberRepository), async (ctx) => {
         const userId = ctx.from?.id;
         if (!userId) return;
 

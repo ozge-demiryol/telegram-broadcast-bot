@@ -12,13 +12,6 @@ export const CONFIG = {
       process.env.DB_CONNECTION_STRING ||
       "mysql://root:rootpassword@localhost:3306/telegram_bot",
   },
-  REDIS: {
-    PORT: parseInt(process.env.REDIS_PORT || "6379") || 6379,
-    HOST: process.env.REDIS_HOST || "localhost",
-    PASSWORD: process.env.REDIS_PASSWORD || undefined,
-    MAX_RETRIES: parseInt(process.env.REDIS_MAX_RETRIES || "5") || 5,
-    CONNECTION_NAME: process.env.REDIS_CONNECTION_NAME || "telegram-bot-redis",
-  },
   TELEGRAM: {
     TOKEN: process.env.TELEGRAM_TOKEN || "",
     PUBLIC_URL: process.env.PUBLIC_URL || "",

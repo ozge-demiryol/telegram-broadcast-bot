@@ -52,7 +52,7 @@ export class SettingsRepository implements ISettingsRepository {
             const [rows]: any = await this.db.execute(
                 "SELECT setting_value FROM bot_settings WHERE setting_key = 'broadcast_speed'"
             );
-            const limit = rows[0]?.setting_value ? parseInt(rows[0].setting_value, 10) : this.defaultSpeed;
+            const limit = rows[0]?.setting_value ? parseFloat(rows[0].setting_value) : this.defaultSpeed;
             this.broadcastLimitCache = limit;
             return limit;
         } catch (error) {
