@@ -15,6 +15,7 @@ export class BroadcastWorker {
   private wakeAgain = false;
   private currentJobId: number | null = null;
   private maxAttempts = 3;
+  private maxErrorStreak = 20;
   private retryDelayMs = 60_000;
   private retryTimer?: NodeJS.Timeout;
   private shouldStop = false;
@@ -147,6 +148,10 @@ export class BroadcastWorker {
 
     let totalUsers = await this.subscriberRepo.countTotalSubcribers();
 
+    // Circuit breaker: many errors in a row mean the problem is not the subscribers
+    let errorStreak = 0;
+    let beforeStreak = { last_subscriber_id: lastId, failed_count: failedCount };
+
     await this.notify(
       job.admin_id,
       job.last_subscriber_id > 0
@@ -182,6 +187,7 @@ export class BroadcastWorker {
         const subscriber = row as Subscriber;
         batchSize++;
         currentIndex++;
+        const previousId = lastId;
         lastId = subscriber.id;
 
         this.logger.debug(`Batch size: ${batchSize}`);
@@ -214,6 +220,10 @@ export class BroadcastWorker {
             );
           } else {
             reached = false;
+            // "chat not found" is about this subscriber only
+            if (!error.response?.description?.includes("chat not found") && errorStreak++ === 0) {
+              beforeStreak = { last_subscriber_id: previousId, failed_count: failedCount };
+            }
             failedCount++;
             this.logger.error(`[Error] msg-${currentIndex}: ${error.message}`);
           }
@@ -228,6 +238,17 @@ export class BroadcastWorker {
           blocked_count: blockedCount,
           ...(reached && { attempts: 0 }),
         });
+
+        if (reached) errorStreak = 0;
+        if (errorStreak >= this.maxErrorStreak) {
+          // Rewind so that nobody in the streak is skipped when the job is retried
+          await this.broadcastRepo.saveProgress(job.id, {
+            ...beforeStreak,
+            sent_count: sentCount,
+            blocked_count: blockedCount,
+          });
+          throw new Error(`${errorStreak} errors in a row`);
+        }
 
         if (currentIndex % this.chunkSize === 0 && currentIndex < totalUsers) {
           this.logger.info(`Chunking pause at ${currentIndex}`);

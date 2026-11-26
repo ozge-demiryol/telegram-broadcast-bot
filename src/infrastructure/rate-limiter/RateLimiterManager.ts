@@ -70,36 +70,35 @@ export class RateLimiterManager {
   }
 
   private setupErrorHandlers() {
-    this.limiter.on("failed", async (error, jobInfo) => {
-      const id = jobInfo.options.id;
+    this.limiter.on("failed", async (error, jobInfo) =>
+      this.retryDelay(error, jobInfo.retryCount, jobInfo.options.id)
+    );
+  }
 
-      // 1. Handle 429 Too Many Requests
-      if (error.response?.error_code === StatusCodes.TOO_MANY_REQUESTS) {
-        const retryAfter = error.response.parameters?.retry_after || 60;
-        const waitTime = retryAfter * 1000 + 5000; // Extra generous buffer
-        this.logger.warn(
-          `[Spam Guard] Rate limit at ${id}. Cooling down for ${waitTime} ms...`
-        );
-        return waitTime;
-      }
-
-      // 2. Handle Timeouts & Network Flaps
-      if (
-        error.name === "TimeoutError" ||
-        error.code === "ETIMEDOUT" ||
-        error.code === "ECONNREFUSED"
-      ) {
-        this.logger.error(
-          `[Network] Timeout at ${id}. Waiting 7s before retry.`
-        );
-        return 7000;
-      }
-
-      this.logger.error(
-        `Error at ${id}. Waiting 7s before retry.`
+  // Milliseconds to wait before retrying, or null to give up on this message
+  private retryDelay(error: any, retryCount: number, id: string): number | null {
+    // 1. Handle 429 Too Many Requests: Telegram says how long to wait
+    if (error.response?.error_code === StatusCodes.TOO_MANY_REQUESTS) {
+      const retryAfter = error.response.parameters?.retry_after || 60;
+      const waitTime = retryAfter * 1000 + 5000; // Extra generous buffer
+      this.logger.warn(
+        `[Spam Guard] Rate limit at ${id}. Cooling down for ${waitTime} ms...`
       );
+      return waitTime;
+    }
 
-      return null;
-    });
+    // 2. Handle Timeouts & Network Flaps, a limited number of times
+    const isNetworkError =
+      error.name === "TimeoutError" ||
+      error.code === "ETIMEDOUT" ||
+      error.code === "ECONNREFUSED";
+
+    if (isNetworkError && retryCount < 3) {
+      this.logger.error(`[Network] Timeout at ${id}. Waiting 7s before retry.`);
+      return 7000;
+    }
+
+    this.logger.error(`Error at ${id}. Not retrying.`);
+    return null;
   }
 }

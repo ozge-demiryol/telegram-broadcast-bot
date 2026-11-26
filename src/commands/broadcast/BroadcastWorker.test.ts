@@ -200,4 +200,47 @@ describe("BroadcastWorker queue", () => {
     expect(repo.jobs[0].status).toBe("cancelled");
     expect(messenger.sendMessage.mock.calls[0][2].reply_markup.inline_keyboard[0][0].callback_data).toBe("stop_broadcast_1");
   });
+
+  const telegramError = (error_code: number, description: string) =>
+    Object.assign(new Error(description), { response: { error_code, description } });
+
+  it("stops at a run of errors without skipping anyone, and resumes there", async () => {
+    const { repo, worker, messenger, sentTo, texts } = setup();
+    (worker as any).retryDelayMs = 20;
+    (worker as any).maxErrorStreak = 3;
+    repo.add();
+    let outage = 3;
+    messenger.copyMessage.mockImplementation(async (to: number) => {
+      if (to >= 103 && outage-- > 0) throw new Error("socket hang up");
+    });
+
+    worker.wake();
+    await until(() => repo.jobs[0].status === "completed");
+    expect(sentTo()).toEqual([101, 102, 103, 104, 105, ...everyone.slice(2)]);
+    expect(texts().at(-1)).toContain("Sent: 10\n");
+    expect(texts().at(-1)).toContain("Errors: 0");
+  });
+
+  it("marks the broadcast failed when the errors never end", async () => {
+    const { repo, worker, messenger } = setup();
+    (worker as any).retryDelayMs = 20;
+    (worker as any).maxErrorStreak = 3;
+    repo.add();
+    messenger.copyMessage.mockRejectedValue(telegramError(400, "Bad Request: message to copy not found"));
+
+    worker.wake();
+    await until(() => repo.jobs[0].status === "failed");
+    expect(repo.jobs[0]).toMatchObject({ last_subscriber_id: 0, failed_count: 0 });
+  });
+
+  it("does not treat a run of unreachable chats as an outage", async () => {
+    const { repo, worker, messenger } = setup();
+    (worker as any).maxErrorStreak = 3;
+    repo.add();
+    messenger.copyMessage.mockRejectedValue(telegramError(400, "Bad Request: chat not found"));
+
+    worker.wake();
+    await until(() => repo.jobs[0].status === "completed");
+    expect(repo.jobs[0].failed_count).toBe(10);
+  });
 });
