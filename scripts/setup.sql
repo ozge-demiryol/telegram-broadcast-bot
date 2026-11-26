@@ -1,5 +1,5 @@
 -- 1. Create the database if it doesn't exist
-CREATE DATABASE IF NOT EXISTS telegram_bot;
+CREATE DATABASE IF NOT EXISTS telegram_bot CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 USE telegram_bot;
 
@@ -24,9 +24,15 @@ CREATE TABLE IF NOT EXISTS broadcasts (
     admin_id BIGINT,
     message_id BIGINT,
     chat_id BIGINT,
-    status ENUM('pending', 'processing', 'completed') DEFAULT 'pending',
+    status ENUM('pending', 'processing', 'completed', 'cancelled', 'failed') DEFAULT 'pending',
+    last_subscriber_id INT NOT NULL DEFAULT 0,
+    sent_count INT NOT NULL DEFAULT 0,
+    failed_count INT NOT NULL DEFAULT 0,
+    blocked_count INT NOT NULL DEFAULT 0,
+    attempts INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    modifiedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    modifiedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_broadcast_message (chat_id, message_id)
 );
 
 -- 5. Settings Table
