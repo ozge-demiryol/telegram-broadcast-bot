@@ -58,6 +58,12 @@ function fakeRepo() {
       job.attempts++;
       return { ...job };
     }),
+    requeueInterrupted: jest.fn(async () => {
+      jobs.filter((j) => j.status === "processing").forEach((j) => (j.status = "pending"));
+    }),
+    saveProgress: jest.fn(async (id: number, progress: object) => {
+      Object.assign(jobs[id - 1], progress);
+    }),
     finish: jest.fn(async (id: number, status: string) => {
       const job = jobs[id - 1];
       if (job.status === "processing") job.status = status;
@@ -119,5 +125,33 @@ describe("BroadcastWorker queue", () => {
 
     worker.wake();
     await until(() => repo.jobs[1]?.status === "completed");
+  });
+
+  it("resumes where it stopped after the process dies mid-broadcast", async () => {
+    const first = setup();
+    first.repo.add();
+    // the 5th send never returns: from the DB's point of view the process died here
+    first.messenger.copyMessage.mockImplementation((to: number) => (to === 105 ? new Promise<void>(() => {}) : Promise.resolve()));
+    first.worker.wake();
+    await until(() => first.sentTo().includes(105));
+    expect(first.repo.jobs[0]).toMatchObject({ status: "processing", last_subscriber_id: 4, sent_count: 4 });
+
+    const second = setup(first.repo); // restarted process, same database
+    second.worker.wake();
+    await until(() => first.repo.jobs[0].status === "completed");
+
+    expect(second.sentTo()).toEqual(everyone.slice(4)); // only #5 was attempted twice
+    expect(second.texts()[0]).toContain("resumed");
+    expect(second.texts().at(-1)).toContain("Sent: 10\n");
+  });
+
+  it("still finishes the broadcast when the admin cannot be messaged", async () => {
+    const { repo, worker, messenger, sentTo } = setup();
+    repo.add();
+    messenger.sendMessage.mockRejectedValue(new Error("bot was blocked by the user"));
+
+    worker.wake();
+    await until(() => repo.jobs[0].status === "completed");
+    expect(sentTo()).toEqual(everyone);
   });
 });

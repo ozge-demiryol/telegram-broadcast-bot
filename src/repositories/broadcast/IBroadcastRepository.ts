@@ -8,6 +8,12 @@ export interface IBroadcastRepository {
     chatId: number
   ): Promise<void>;
   claimNext(): Promise<BroadcastJob | null>;
+  requeueInterrupted(): Promise<void>;
+  saveProgress(id: number, progress: BroadcastProgress): Promise<void>;
   finish(id: number, status: BroadcastJob["status"]): Promise<void>;
 }
 export { BroadcastJob };
+export type BroadcastProgress = Pick<
+  BroadcastJob,
+  "last_subscriber_id" | "sent_count" | "failed_count" | "blocked_count"
+>;

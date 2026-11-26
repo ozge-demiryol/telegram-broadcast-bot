@@ -56,6 +56,10 @@ export class BroadcastWorker {
   }
 
   private async run() {
+    // Only one loop runs in one process, so a job still marked 'processing' here
+    // was interrupted (restart, crash): put it back in the queue.
+    await this.broadcastRepo.requeueInterrupted();
+
     // wakeAgain covers a job that arrives while we are finding the queue empty
     do {
       this.wakeAgain = false;
@@ -80,15 +84,23 @@ export class BroadcastWorker {
     }
   }
 
+  // A failed notification to the admin must not fail the broadcast itself.
+  private async notify(adminId: number, text: string, extra?: any) {
+    try {
+      await this.messenger.sendMessage(adminId, text, extra);
+    } catch (error) {
+      this.logger.error("Failed to message the admin", error);
+    }
+  }
+
   private async reportProgress(
     adminId: number,
     sent: number,
     failed: number,
     blocked: number
   ) {
-    // Reporting is now async and safe
     const totalProcessed = sent + failed + blocked;
-    await this.messenger.sendMessage(
+    await this.notify(
       adminId,
       `📊 Progress: ${totalProcessed} users reached`,
       Markup.inlineKeyboard([
@@ -98,20 +110,23 @@ export class BroadcastWorker {
   }
 
   private async runBroadcast(job: BroadcastJob, startTime: number) {
-    let sentCount = 0;
-    let failedCount = 0;
-    let blockedCount = 0;
+    // Start from what was saved, so an interrupted job continues where it stopped
+    let sentCount = job.sent_count;
+    let failedCount = job.failed_count;
+    let blockedCount = job.blocked_count;
     //For pagination
     const PAGE_SIZE = this.pageSize;
     let hasMore = true;
-    let lastId = 0;
-    let currentIndex = 0;
+    let lastId = job.last_subscriber_id;
+    let currentIndex = sentCount + failedCount + blockedCount;
 
     let totalUsers = await this.subscriberRepo.countTotalSubcribers();
 
-    await this.messenger.sendMessage(
+    await this.notify(
       job.admin_id,
-      `Broadcast started for ${totalUsers} users.`,
+      job.last_subscriber_id > 0
+        ? `▶️ Broadcast #${job.id} resumed after a restart (${sentCount} sent so far).`
+        : `Broadcast started for ${totalUsers} users.`,
       Markup.inlineKeyboard([
         Markup.button.callback("🛑 Stop Broadcast", "stop_broadcast"),
       ])
@@ -134,7 +149,7 @@ export class BroadcastWorker {
         if (this.shouldStop) {
           this.logger.info("Broadcast stopped manually by admin.");
           await this.broadcastRepo.finish(job.id, "cancelled");
-          await this.messenger.sendMessage(
+          await this.notify(
             job.admin_id,
             "🛑 Broadcast has been stopped by admin."
           );
@@ -164,25 +179,6 @@ export class BroadcastWorker {
               sentCount++;
             }
           );
-
-          if (
-            currentIndex % this.chunkSize === 0 &&
-            currentIndex < totalUsers
-          ) {
-            this.logger.info(`Chunking pause at ${currentIndex}`);
-            await new Promise((res) => setTimeout(res, 2000));
-
-            if (currentIndex % 500 === 0) {
-              this.reportProgress(
-                job.admin_id,
-                sentCount,
-                failedCount,
-                blockedCount
-              ).catch((error) => {
-                this.logger.error("Failed to report progress to admin", error);
-              });
-            }
-          }
         } catch (error: any) {
           if (error.response?.error_code === StatusCodes.FORBIDDEN) {
             blockedCount++;
@@ -196,6 +192,24 @@ export class BroadcastWorker {
           } else {
             failedCount++;
             this.logger.error(`[Error] msg-${currentIndex}: ${error.message}`);
+          }
+        }
+
+        // Saved after every subscriber: a crash repeats at most one message.
+        // Telegram allows 30 msg/sec at most, so these writes are cheap.
+        await this.broadcastRepo.saveProgress(job.id, {
+          last_subscriber_id: lastId,
+          sent_count: sentCount,
+          failed_count: failedCount,
+          blocked_count: blockedCount,
+        });
+
+        if (currentIndex % this.chunkSize === 0 && currentIndex < totalUsers) {
+          this.logger.info(`Chunking pause at ${currentIndex}`);
+          await new Promise((res) => setTimeout(res, 2000));
+
+          if (currentIndex % 500 === 0) {
+            this.reportProgress(job.admin_id, sentCount, failedCount, blockedCount);
           }
         }
       }
@@ -215,7 +229,7 @@ export class BroadcastWorker {
     );
     const durationMessage = `${durationInMinutes}m ${durationInSeconds}s`;
 
-    await this.messenger.sendMessage(
+    await this.notify(
       job.admin_id,
       `✅ Broadcast Finished${CONFIG.DRY_RUN ? " (DRY RUN)" : ""}\nSent: ${sentCount}\nBlocked/Pruned: ${blockedCount}\nErrors: ${failedCount}\nDuration: ${durationMessage}`
     );

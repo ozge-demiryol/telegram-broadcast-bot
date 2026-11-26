@@ -1,5 +1,5 @@
 import { GetLogger } from "../../infrastructure/logger";
-import { IBroadcastRepository, BroadcastJob } from "./IBroadcastRepository";
+import { IBroadcastRepository, BroadcastJob, BroadcastProgress } from "./IBroadcastRepository";
 
 export class BroadcastRepository implements IBroadcastRepository {
   private logger = GetLogger("BroadcastRepository");
@@ -53,6 +53,14 @@ export class BroadcastRepository implements IBroadcastRepository {
       const [rows] = await this.db.query("SELECT * FROM broadcasts WHERE id = ?", [id]);
       return rows[0];
     }
+  }
+
+  async requeueInterrupted(): Promise<void> {
+    await this.db.query("UPDATE broadcasts SET status = 'pending' WHERE status = 'processing'");
+  }
+
+  async saveProgress(id: number, progress: BroadcastProgress): Promise<void> {
+    await this.db.query("UPDATE broadcasts SET ? WHERE id = ?", [progress, id]);
   }
 
   async finish(id: number, status: BroadcastJob["status"]): Promise<void> {

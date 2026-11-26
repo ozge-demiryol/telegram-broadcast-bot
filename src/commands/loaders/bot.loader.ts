@@ -53,6 +53,7 @@ export const loadBotFeatures = (bot: Telegraf, db: Pool) => {
     );
 
     logger.info("Bot features (commands) loaded successfully.");
+    return { broadcastWorker };
   } catch (error) {
     logger.error(
       "CRITICAL: Failed to load bot features during bootstrap",
